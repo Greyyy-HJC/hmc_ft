@@ -2,7 +2,7 @@
 import numpy as np
 
 class NambuSystem:
-    def __init__(self, p_dot, r_dot, x_dot, t_max, delta_t):
+    def __init__(self, x_dot, p_dot, r_dot, t_max, delta_t):
         # Initialize the system with given parameters
         self.x_dot = x_dot  # Function for dx/dt
         self.p_dot = p_dot  # Function for dp/dt
@@ -11,7 +11,7 @@ class NambuSystem:
         self.delta_t = delta_t  # Time step
         self.num_steps = int(t_max / delta_t) + 1  # Number of simulation steps
 
-    def simulate(self, p0, r0, x0):
+    def simulate(self, x0, p0, r0):
         # Initialize arrays to store positions, momenta, and time
         x_array = np.zeros(self.num_steps)  # Position array for x
         p_array = np.zeros(self.num_steps)  # Momentum array
@@ -24,9 +24,9 @@ class NambuSystem:
         # Perform simulation using symplectic Euler method
         for i in range(1, self.num_steps):
             # Update momentum, r, and x based on Nambu dynamics equations
-            x_array[i] = x_array[i - 1] + self.delta_t * self.x_dot(p_array[i - 1], r_array[i - 1], x_array[i - 1])
-            p_array[i] = p_array[i - 1] + self.delta_t * self.p_dot(p_array[i - 1], r_array[i - 1], x_array[i - 1])
-            r_array[i] = r_array[i - 1] + self.delta_t * self.r_dot(p_array[i - 1], r_array[i - 1], x_array[i - 1])
+            x_array[i] = x_array[i - 1] + self.delta_t * self.x_dot(x_array[i - 1], p_array[i - 1], r_array[i - 1])
+            p_array[i] = p_array[i - 1] + self.delta_t * self.p_dot(x_array[i - 1], p_array[i - 1], r_array[i - 1])
+            r_array[i] = r_array[i - 1] + self.delta_t * self.r_dot(x_array[i - 1], p_array[i - 1], r_array[i - 1])
 
         return t_array, x_array, p_array, r_array
 
@@ -38,30 +38,39 @@ class NambuSystem:
 
 # Example usage
 if __name__ == "__main__":
+    '''
+    H = p^2 / 2m + kx^2 / 2 + r^2 / 2m
+    G = r^2 / 2m + kx^2 / 4
+    
+    x_dot = dH/dp * dG/dr - dH/dr * dG/dp
+    p_dot = dH/dr * dG/dx - dH/dx * dG/dr
+    r_dot = dH/dx * dG/dp - dH/dp * dG/dx
+    '''
+    
     # Input settings
     k = 1.0  # Spring constant
     m = 1.0  # Mass
     t_max = 30.0  # Maximum time for simulation
-    delta_t = 0.01  # Time step
+    delta_t = 0.0001  # Time step
 
     # Define the Nambu dynamics equations
-    def x_dot(p, r, x):
+    def x_dot(x, p, r):
         return p * r
     
-    def p_dot(p, r, x):
+    def p_dot(x, p, r):
         return -(k / 2) * r * x
 
-    def r_dot(p, r, x):
+    def r_dot(x, p, r):
         return -(k / 2) * p * x
 
     # Initial conditions
     x0 = 0.0
-    p0 = 1.0
-    r0 = 0.5
+    p0 = 3.0
+    r0 = 1.0
 
-    nambu_system = NambuSystem(p_dot, r_dot, x_dot, t_max, delta_t)
+    nambu_system = NambuSystem(x_dot, p_dot, r_dot, t_max, delta_t)
     
-    t_array, x_array, p_array, r_array = nambu_system.simulate(p0, r0, x0)
+    t_array, x_array, p_array, r_array = nambu_system.simulate(x0, p0, r0)
     
     t_sampled, x_sampled, p_sampled, r_sampled = nambu_system.sample_data(t_array, x_array, p_array, r_array)
 

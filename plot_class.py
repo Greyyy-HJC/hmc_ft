@@ -48,7 +48,7 @@ class Plotter:
                 "purple",
             ),
         ]
-
+        
         # Create each subplot
         for ax, x, y, title, xlabel, ylabel, color in plots:
             ax.plot(x, y, color=color)
