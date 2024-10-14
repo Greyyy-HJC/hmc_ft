@@ -245,7 +245,7 @@ def main():
     local_maxima = verify_confinement(x_sampled, potential)
 
     #! Part 2: generate a set of initial conditions
-    N = 100  # length of the set
+    N = 1000  # length of the set
     sampled_initial_conditions = system.sample_initial_conditions(N)
 
     print(f"\n>>> Generated {N} sets of (x0, p0) satisfies p(x0, p0) ∝ exp(-H(x0, p0))")
