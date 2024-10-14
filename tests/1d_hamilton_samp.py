@@ -212,10 +212,12 @@ def verify_confinement(x_sampled, potential_func, epsilon=1e-5):
 def main():
     # Define potential energy function and its derivative
     def potential(x):
-        return np.sin(x) * x
+        # return np.sin(x) * x
+        return x**2 / 2
 
     def dV_dx(x):
-        return np.cos(x) * x + np.sin(x)
+        # return np.cos(x) * x + np.sin(x)
+        return x
 
     # Input settings
     m = 1.0  # Mass
