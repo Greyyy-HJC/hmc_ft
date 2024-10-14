@@ -137,7 +137,7 @@ class Plotter:
             ax.grid(True)
 
         # Adjust energy plot to show conservation
-        axs[1, 1].set_ylim(init_energy - 0.1, init_energy + 0.1)
+        axs[1, 1].set_ylim(init_energy - 0.1 * init_energy, init_energy + 0.1 * init_energy)
         axs[1, 1].axhline(
             y=init_energy, color="black", linestyle="--", label="Initial Energy"
         )
@@ -154,7 +154,7 @@ class Plotter:
         )
         fig.suptitle("Composite Visualization of Hamiltonian System", fontsize=16)
 
-        x_limit_min, x_limit_max = 0, 4 * np.pi
+        x_limit_min, x_limit_max = -3 * np.pi, 3 * np.pi
         ax_top.set_xlim(x_limit_min, x_limit_max)
         ax_bottom.set_xlim(x_limit_min, x_limit_max)
 
@@ -194,8 +194,8 @@ def verify_confinement(x_sampled, potential_func, epsilon=1e-5):
 
     # Check if the particle crossed any of the local maxima
     crossed_barrier = False
-    for barrier in local_maxima:
-        if np.any(np.abs(x_sampled - barrier) < epsilon):
+    for i in range(1, len(x_sampled)):
+        if any((x_sampled[i-1] - barrier) * (x_sampled[i] - barrier) < 0 for barrier in local_maxima):
             crossed_barrier = True
             break
 
@@ -208,26 +208,26 @@ def verify_confinement(x_sampled, potential_func, epsilon=1e-5):
     
     return local_maxima
 
-
+# %%
 def main():
     # Define potential energy function and its derivative
     def potential(x):
-        return np.sin(x)
+        return np.sin(x) * x
 
     def dV_dx(x):
-        return np.cos(x)
+        return np.cos(x) * x + np.sin(x)
 
     # Input settings
     m = 1.0  # Mass
     t_max = 30  # Maximum simulation time
-    delta_t = 0.01  # Time step
+    delta_t = 0.005  # Time step
 
     # Create Hamiltonian system
     system = HamiltonianSystem(potential, dV_dx, m, t_max, delta_t)
 
     #! Part 1: Single initial condition
-    x0_single = 4.0  # Initial position
-    p0_single = 1.0  # Initial momentum
+    x0_single = 0.0  # Initial position
+    p0_single = 2.0  # Initial momentum
 
     t_array, x_array, p_array, energy_array = system.simulate(x0_single, p0_single)
     t_sampled, x_sampled, p_sampled, energy_sampled = system.sample_data(
@@ -246,7 +246,7 @@ def main():
 
     #! Part 2: generate a set of initial conditions
     N = 1000  # length of the set
-    sampled_initial_conditions = system.sample_initial_conditions(N)
+    sampled_initial_conditions = system.sample_initial_conditions(N, x_bounds=(-np.pi, np.pi))
 
     print(f"\n>>> Generated {N} sets of (x0, p0) satisfies p(x0, p0) ∝ exp(-H(x0, p0))")
 
