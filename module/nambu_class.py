@@ -30,7 +30,7 @@ class NambuSystem:
 
         return t_array, x_array, p_array, r_array
 
-    def sample_data(self, t_array, x_array, p_array, r_array):
+    def pick_data(self, t_array, x_array, p_array, r_array):
         # Sample data at regular intervals for plotting
         sample_interval = int(1 / self.delta_t)
         sample_indices = np.arange(0, self.num_steps, sample_interval)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     
     t_array, x_array, p_array, r_array = nambu_system.simulate(x0, p0, r0)
     
-    t_sampled, x_sampled, p_sampled, r_sampled = nambu_system.sample_data(t_array, x_array, p_array, r_array)
+    t_sampled, x_sampled, p_sampled, r_sampled = nambu_system.pick_data(t_array, x_array, p_array, r_array)
 
     from plot_class import Plotter
     energy_sampled = 0.5 * (p_sampled**2) / m + 0.5 * (r_sampled**2) / m + k * (x_sampled**2) / 2
@@ -80,6 +80,6 @@ if __name__ == "__main__":
     
     plotter = Plotter()
     plotter.static_plots(t_sampled, x_sampled, p_sampled, energy_sampled)
-    plotter.composite_plot(x_sampled, t_sampled, potential)
+    plotter.trajectory_plot(x_sampled, t_sampled, potential)
 
 # %%

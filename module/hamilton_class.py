@@ -26,8 +26,8 @@ class HamiltonSystem:
 
         return t_array, x_array, p_array
 
-    def sample_data(self, t_array, x_array, p_array):
-        # Sample data at regular intervals for plotting
+    def pick_data(self, t_array, x_array, p_array):
+        # Pick data at regular intervals for plotting
         sample_interval = int(1 / self.delta_t)  # sample data points at each second
         sample_indices = np.arange(0, self.num_steps, sample_interval)
         return [arr[sample_indices] for arr in (t_array, x_array, p_array)]
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     t_array, x_array, p_array = system.simulate(x0, p0)
 
     # Sample the data
-    t_sampled, x_sampled, p_sampled = system.sample_data(t_array, x_array, p_array)
+    t_sampled, x_sampled, p_sampled = system.pick_data(t_array, x_array, p_array)
 
     from plot_class import Plotter
     energy_sampled = 0.5 * (p_sampled**2) / m + k * (x_sampled**2) / 2
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     
     plotter = Plotter()
     plotter.static_plots(t_sampled, x_sampled, p_sampled, energy_sampled)
-    plotter.composite_plot(x_sampled, t_sampled, potential)
+    plotter.trajectory_plot(x_sampled, t_sampled, potential)
 
 
 
