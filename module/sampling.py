@@ -35,7 +35,7 @@ def metropolis_hastings(target_dist, n_samples, initial_value, proposal_width=1.
     
     return samples
 
-def sample_initial_conditions(Nsamp, p_term, r_term):
+def sample_initial_conditions(Nsamp, p_term, r_term=None):
     """
     Sample Nsamp initial conditions (p0, r0) independently from -inf to inf using Markov Chain Monte Carlo,
     with probability proportional to exp(- p_term) and exp(- r_term) respectively,
@@ -53,11 +53,15 @@ def sample_initial_conditions(Nsamp, p_term, r_term):
     # Sample p0 using Metropolis-Hastings
     p0_samples = metropolis_hastings(p_term, Nsamp, initial_value=0.0)
     
-    # Sample r0 using Metropolis-Hastings
-    r0_samples = metropolis_hastings(r_term, Nsamp, initial_value=0.0)
-    
-    # Combine p0 and r0 samples
-    samples = list(zip(p0_samples, r0_samples))
+    if r_term is not None:
+        # Sample r0 using Metropolis-Hastings
+        r0_samples = metropolis_hastings(r_term, Nsamp, initial_value=0.0)
+        
+        # Combine p0 and r0 samples
+        samples = list(zip(p0_samples, r0_samples))
+        
+    else:
+        samples = p0_samples
 
     return samples
 
