@@ -34,29 +34,29 @@ class CNNModel(BaseModel):
         super(CNNModel, self).__init__()
         self.lattice_size = lattice_size
 
-        # Define convolutional layers, use GELU instead of ReLU
+        # Define convolutional layers
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(2, 32, kernel_size=3, padding=1),  # Input channels = 2
-            nn.GELU(),
+            nn.Conv2d(2, 32, kernel_size=3, padding=1),  # Input channels = 2 (directions), output channels = 32
+            nn.ReLU(),
             nn.Conv2d(32, 32, kernel_size=3, padding=1),
-            nn.GELU(),
-            nn.Conv2d(32, 2, kernel_size=3, padding=1)   # Output channels = 2
+            nn.ReLU(),
+            nn.Conv2d(32, 2, kernel_size=3, padding=1)   # Output channels = 2 to match input channels
         )
 
     def forward(self, x):
-        x = x.view(-1, 2, self.lattice_size, self.lattice_size)  # Ensure correct shape
-        x = self.conv_layers(x)  # Apply convolution
-        x += x  # local update superposition
-        return x.view(-1, 2 * self.lattice_size * self.lattice_size)  # Flatten
+        # Reshape input to (batch_size, channels, height, width)
+        x = x.view(-1, 2, self.lattice_size, self.lattice_size)
+        x = self.conv_layers(x)
+        # Flatten output back to (batch_size, 2 * L * L)
+        x = x.view(-1, 2 * self.lattice_size * self.lattice_size)
+        return x
 
 class NNFieldTransformation:
-    def __init__(self, lattice_size, model_type='CNN', epsilon=0.01, epsilon_decay=1):
+    def __init__(self, lattice_size, model_type='CNN'):
         self.lattice_size = lattice_size
         self.input_size = 2 * lattice_size * lattice_size  # Adjusted input size
         self.output_size = 2 * lattice_size * lattice_size  # Adjusted output size
         self.device = torch.device('cpu')  # Change to 'cuda' if using GPU
-        self.epsilon = epsilon  # Initial epsilon
-        self.epsilon_decay = epsilon_decay  # Decay factor for epsilon
 
         # Choose the model type
         if model_type == 'SimpleNN':
@@ -78,7 +78,8 @@ class NNFieldTransformation:
         delta_U_tensor = self.model(U_tensor)
 
         # Limit the transformation magnitude
-        U_transformed_tensor = U_tensor + self.epsilon * delta_U_tensor
+        epsilon = 0.01  # Scaling factor to limit transformation magnitude
+        U_transformed_tensor = U_tensor + epsilon * delta_U_tensor
 
         # Reshape back to (2, L, L)
         U_transformed = U_transformed_tensor.detach().cpu().numpy().reshape(U.shape)
@@ -93,14 +94,6 @@ class NNFieldTransformation:
         action = self.compute_action_torch(theta, hmc_instance)
         force = torch.autograd.grad(action, theta, create_graph=True)[0]
         return force
-    
-    def metropolis_acceptance(self, delta_H):
-        """Metropolis-Hastings acceptance step."""
-        if delta_H < 0:
-            return True
-        elif np.random.rand() < np.exp(-delta_H):
-            return True
-        return False
             
     def train(self, hmc_instance, n_iterations):
         loss_history = []  # To store loss values
@@ -111,19 +104,9 @@ class NNFieldTransformation:
 
             # Forward pass through the neural network
             delta_U_tensor = self.model(U_tensor)
-            U_transformed_tensor = U_tensor + self.epsilon * delta_U_tensor
+            epsilon = 0.01  # Scaling factor for transformation magnitude
+            U_transformed_tensor = U_tensor + epsilon * delta_U_tensor
             U_transformed = U_transformed_tensor.view(2, self.lattice_size, self.lattice_size)
-            
-            # Calculate original and transformed actions
-            action_original = self.compute_action_torch(
-                U_tensor.view(2, self.lattice_size, self.lattice_size), hmc_instance
-            )
-            action_transformed = self.compute_action_torch(U_transformed, hmc_instance)
-
-            # Calculate Hamiltonian change and apply Metropolis-Hastings decision
-            delta_H = action_transformed.item() - action_original.item()
-            if not self.metropolis_acceptance(delta_H):
-                continue  # If the new configuration is rejected, skip the optimization step
 
             # Compute forces (gradients of actions)
             force_original = self.compute_force_torch(
@@ -132,8 +115,8 @@ class NNFieldTransformation:
             force_transformed = self.compute_force_torch(U_transformed, hmc_instance)
 
             # Compute the loss using p-norm (e.g., p = 2)
-            # Use combined norm for loss calculation
-            loss = torch.norm(force_transformed - force_original, p=2) + torch.norm(force_transformed - force_original, p=float('inf'))
+            p = 2  # You can adjust this to other norms
+            loss = torch.norm(force_transformed - force_original, p=p)
 
             # Log the loss
             loss_history.append(loss.item())
@@ -142,9 +125,6 @@ class NNFieldTransformation:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-
-            # Decay epsilon
-            self.epsilon *= self.epsilon_decay
 
         # Plot the loss history
         plt.figure(figsize=(6, 4))
@@ -155,7 +135,7 @@ class NNFieldTransformation:
         plt.grid(linestyle=":")
         plt.title('Training Loss Over Time')
         plt.show()
-    
+
     def compute_action_torch(self, theta, hmc_instance):
         """
         Compute the action using PyTorch operations.
