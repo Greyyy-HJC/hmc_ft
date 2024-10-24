@@ -16,13 +16,18 @@ def compute_autocorrelation(Q, max_lag):
         Autocorrelation values for each δ.
     """
     Q_mean = np.mean(Q)
-    Q_var = np.mean((Q - Q_mean) ** 2)
+    Q_var = np.var(Q)  # Use np.var for more numerical stability
 
     autocorrelations = np.zeros(max_lag + 1)
+
+    # Compute autocorrelation for each delta
     for delta in range(max_lag + 1):
-        # Compute <Qτ Qτ+δ>
-        covariance = np.mean((Q[:-delta] - Q_mean) * (Q[delta:] - Q_mean)) if delta > 0 else Q_var
-        autocorrelations[delta] = covariance / Q_var
+        if delta == 0:
+            autocorrelations[delta] = 1.0  # Normalized to 1 at delta=0
+        else:
+            # Ensure correct slicing to avoid index errors
+            covariance = np.mean((Q[:-delta] - Q_mean) * (Q[delta:] - Q_mean))
+            autocorrelations[delta] = covariance / Q_var
 
     return autocorrelations
 
