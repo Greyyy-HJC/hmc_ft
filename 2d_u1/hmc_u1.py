@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 
 class HMC_U1:
-    def __init__(self, lattice_size, beta, n_steps, step_size):
+    def __init__(self, lattice_size, beta, n_thermalization_steps, n_steps, step_size):
         """
         Initialize the HMC_U1 class.
 
@@ -19,6 +19,7 @@ class HMC_U1:
         """
         self.lattice_size = lattice_size
         self.beta = beta
+        self.n_thermalization_steps = n_thermalization_steps
         self.n_steps = n_steps
         self.step_size = step_size
 
@@ -135,15 +136,32 @@ class HMC_U1:
         # Sum over the plaquette angles and divide by 2π
         Q = np.sum(theta_P_wrapped) / (2 * np.pi)
         return Q
-
-    def run(self, n_iterations, field_transformation=None):
+    
+    def thermalize(self, field_transformation=None):
         theta = self.initialize()
+        
+        actions = []
+        acceptance_count = 0
+        
+        for _ in tqdm(range(self.n_thermalization_steps), desc="Thermalizing"):
+            if field_transformation:
+                theta = field_transformation(theta)
+            theta, accepted, _ = self.metropolis_step(theta)
+            actions.append(self.action(theta))
+            if accepted:
+                acceptance_count += 1
+        
+        acceptance_rate = acceptance_count / self.n_thermalization_steps
+        return theta, np.array(actions), acceptance_rate
+
+    def run(self, n_iterations, theta_thermalized, field_transformation=None):
+        theta = theta_thermalized
         actions = []
         hamiltonians = []
         acceptance_count = 0
         topological_charges = []
 
-        for _ in tqdm(range(n_iterations)):
+        for _ in tqdm(range(n_iterations), desc="Running HMC"):
             if field_transformation:
                 theta = field_transformation(theta)
 

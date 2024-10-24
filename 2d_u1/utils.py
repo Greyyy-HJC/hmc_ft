@@ -1,49 +1,70 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_results(actions, topological_charges, hamiltonians, title_suffix=""):
-    plt.figure(figsize=(24, 10))
+def compute_autocorrelation(Q, max_lag):
+    """
+    Compute the autocorrelation function of a sequence of topological charges.
 
-    plt.subplot(231)
-    plt.plot(actions)
-    plt.title(f'Action vs. Iteration {title_suffix}')
-    plt.xlabel('Iteration')
-    plt.ylabel('Action')
+    Parameters:
+    Q : numpy.ndarray
+        Time series of topological charges.
+    max_lag : int
+        Maximum lag (i.e., maximum δ value).
 
-    plt.subplot(232)
+    Returns:
+    autocorrelations : numpy.ndarray
+        Autocorrelation values for each δ.
+    """
+    Q_mean = np.mean(Q)
+    Q_var = np.mean((Q - Q_mean) ** 2)
+
+    autocorrelations = np.zeros(max_lag + 1)
+    for delta in range(max_lag + 1):
+        # Compute <Qτ Qτ+δ>
+        covariance = np.mean((Q[:-delta] - Q_mean) * (Q[delta:] - Q_mean)) if delta > 0 else Q_var
+        autocorrelations[delta] = covariance / Q_var
+
+    return autocorrelations
+
+def plot_results(thermalization_actions, actions, topological_charges, hamiltonians, autocorrelations, title_suffix=""):
+    plt.figure(figsize=(18, 12))
+    fontsize = 18  # Set the font size for labels and titles
+
+    plt.subplot(221)
+    plt.plot(np.arange(len(thermalization_actions)), thermalization_actions, label='Thermalization Actions', color='blue')
+    plt.plot(np.arange(len(actions)) + len(thermalization_actions), actions, label='Actions', color='orange')
+    plt.legend()
+    plt.title(f'Action vs. Iteration {title_suffix}', fontsize=fontsize)
+    plt.xlabel('Iteration', fontsize=fontsize)
+    plt.ylabel('Action', fontsize=fontsize)
+    plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
+    plt.grid(linestyle=":")
+
+    plt.subplot(222)
     plt.plot(hamiltonians)
-    plt.title(f'Hamiltonian vs. Iteration {title_suffix}')
-    plt.xlabel('Iteration')
-    plt.ylabel('Hamiltonian')
+    plt.title(f'Hamiltonian vs. Iteration {title_suffix}', fontsize=fontsize)
+    plt.xlabel('Iteration', fontsize=fontsize)
+    plt.ylabel('Hamiltonian', fontsize=fontsize)
+    plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
+    plt.grid(linestyle=":")
     plt.axhline(y=np.mean(hamiltonians), color='r', linestyle='--', label='Mean Hamiltonian')
-    plt.legend()
+    plt.legend(fontsize=fontsize-2)
 
-    plt.subplot(233)
+    plt.subplot(223)
     plt.plot(topological_charges)
-    plt.title(f'Topological Charge vs. Iteration {title_suffix}')
-    plt.xlabel('Iteration')
-    plt.ylabel('Topological Charge')
+    plt.title(f'Topological Charge vs. Iteration {title_suffix}', fontsize=fontsize)
+    plt.xlabel('Iteration', fontsize=fontsize)
+    plt.ylabel('Topological Charge', fontsize=fontsize)
+    plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
+    plt.grid(linestyle=":")
 
-    plt.subplot(234)
-    plt.hist(actions, bins=30, alpha=0.7, label='Action Histogram')
-    plt.title(f'Action Distribution {title_suffix}')
-    plt.xlabel('Action')
-    plt.ylabel('Frequency')
-    plt.legend()
-
-    plt.subplot(235)
-    plt.hist(hamiltonians, bins=30, alpha=0.7, label='Hamiltonian Histogram')
-    plt.title(f'Hamiltonian Distribution {title_suffix}')
-    plt.xlabel('Hamiltonian')
-    plt.ylabel('Frequency')
-    plt.legend()
-
-    plt.subplot(236)
-    plt.hist(topological_charges, bins=30, alpha=0.7, label='Topological Charge Histogram')
-    plt.title(f'Topological Charge Distribution {title_suffix}')
-    plt.xlabel('Topological Charge')
-    plt.ylabel('Frequency')
-    plt.legend()
+    plt.subplot(224)
+    plt.plot(range(len(autocorrelations)), autocorrelations, marker='o')
+    plt.title('Autocorrelation', fontsize=fontsize)
+    plt.xlabel('MDTU', fontsize=fontsize)
+    plt.ylabel('Autocorrelation', fontsize=fontsize)
+    plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
+    plt.grid(linestyle=":")
 
     plt.tight_layout()
     plt.show()

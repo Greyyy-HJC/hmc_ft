@@ -86,34 +86,34 @@ class NNFieldTransformation:
         # Ensure angles are within [0, 2π)
         U_transformed = np.mod(U_transformed, 2 * np.pi)
         return U_transformed
-
+    
+    def compute_force_torch(self, theta, hmc_instance):
+        """Compute the force (gradient of the action) using PyTorch operations."""
+        theta.requires_grad_(True)  # Ensure gradients are tracked
+        action = self.compute_action_torch(theta, hmc_instance)
+        force = torch.autograd.grad(action, theta, create_graph=True)[0]
+        return force
+            
     def train(self, hmc_instance, n_iterations):
         for _ in tqdm(range(n_iterations), desc="Training Neural Network"):
-            # Initialize U using the HMC instance
-            U = hmc_instance.initialize()  # U shape: (2, L, L)
-
-            # Convert U to tensor
-            U_tensor = torch.tensor(U, dtype=torch.float32, device=self.device)
-            U_tensor = U_tensor.view(1, -1)  # Shape: (1, 2 * L * L)
+            U = hmc_instance.initialize()  # Initialize U with shape (2, L, L)
+            U_tensor = torch.tensor(U, dtype=torch.float32, device=self.device).view(1, -1)
 
             # Forward pass through the neural network
             delta_U_tensor = self.model(U_tensor)
-
-            # Limit the transformation magnitude
-            epsilon = 0.01  # Scaling factor to limit transformation magnitude
+            epsilon = 0.01  # Scaling factor for transformation magnitude
             U_transformed_tensor = U_tensor + epsilon * delta_U_tensor
-
-            # Reshape tensors back to (2, L, L)
             U_transformed = U_transformed_tensor.view(2, self.lattice_size, self.lattice_size)
 
-            # Compute the action using PyTorch functions
-            action_original = self.compute_action_torch(U_tensor.view(2, self.lattice_size, self.lattice_size), hmc_instance)
-            action_transformed = self.compute_action_torch(U_transformed, hmc_instance)
+            # Compute forces (gradients of actions)
+            force_original = self.compute_force_torch(
+                U_tensor.view(2, self.lattice_size, self.lattice_size), hmc_instance
+            )
+            force_transformed = self.compute_force_torch(U_transformed, hmc_instance)
 
-            # Compute the transformation strength
-            transformation_strength = torch.mean((U_transformed - U_tensor.view(2, self.lattice_size, self.lattice_size))**2)
-            lambda_reg = 1.0  # Regularization strength
-            loss = (action_transformed - action_original) + lambda_reg * transformation_strength
+            # Compute the loss using p-norm (e.g., p = 2)
+            p = 2  # You can adjust this to other norms
+            loss = torch.norm(force_transformed - force_original, p=p)
 
             # Backpropagation and optimization
             self.optimizer.zero_grad()
