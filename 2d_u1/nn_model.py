@@ -48,7 +48,7 @@ class CNNModel(BaseModel):
         x = self.conv_layers(x)  # Apply convolution
         x += x  # local update superposition
         return x.view(-1, 2 * self.lattice_size * self.lattice_size)  # Flatten
-
+    
 class NNFieldTransformation:
     def __init__(self, lattice_size, model_type='CNN', epsilon=0.01, epsilon_decay=1):
         self.lattice_size = lattice_size

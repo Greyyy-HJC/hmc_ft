@@ -1,6 +1,53 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import quad
+from scipy.special import i0, i1
+
+def plaquette_value(beta):
+    """
+    Compute the expected plaquette value <P> = I_1(beta) / I_0(beta),
+    where I_n(beta) are the modified Bessel functions of the first kind.
+    
+    Parameters:
+    beta : float
+        Lattice coupling constant.
+    
+    Returns:
+    float
+        The expected plaquette value.
+    """
+    # Calculate modified Bessel functions I_1(beta) and I_0(beta)
+    I1 = i1(beta)
+    I0 = i0(beta)
+
+    # Calculate plaquette value
+    P_expected = I1 / I0
+    return P_expected
+
+def calculate_plaquette_from_field(theta):
+    """
+    Calculate the average plaquette value for a given field configuration.
+    
+    Parameters:
+    theta : numpy.ndarray
+        The field configuration (2, L, L), where theta[0] and theta[1] are
+        the U(1) angles for the x and y directions, respectively.
+
+    Returns:
+    float
+        The average plaquette value.
+    """
+    # Compute plaquette angles: P = U0 * U1(x+1) * Udagger0(y+1) * Udagger1
+    theta_P = (
+        theta[0]
+        + np.roll(theta[1], shift=-1, axis=0)
+        - np.roll(theta[0], shift=-1, axis=1)
+        - theta[1]
+    )
+    
+    # Calculate the average plaquette value
+    plaquette_value = np.mean(np.cos(theta_P))
+    return plaquette_value
 
 def chi_infinity(beta):
     """
