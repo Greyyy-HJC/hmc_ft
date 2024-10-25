@@ -80,41 +80,41 @@ def compute_autocorrelation(Q, max_lag, beta, volume):
 
     return autocorrelations
 
-# def compute_autocorrelation(Q, max_lag):
-#     """
-#     Compute the autocorrelation function of a sequence of topological charges.
+def compute_autocorrelation_by_def(Q, max_lag):
+    """
+    Compute the autocorrelation function of a sequence of topological charges.
 
-#     Parameters:
-#     Q : numpy.ndarray
-#         Time series of topological charges.
-#     max_lag : int
-#         Maximum lag (i.e., maximum δ value).
+    Parameters:
+    Q : numpy.ndarray
+        Time series of topological charges.
+    max_lag : int
+        Maximum lag (i.e., maximum δ value).
 
-#     Returns:
-#     autocorrelations : numpy.ndarray
-#         Autocorrelation values for each δ.
-#     """
-#     # round Q to the nearest integer
-#     Q = np.round(Q).astype(int)
+    Returns:
+    autocorrelations : numpy.ndarray
+        Autocorrelation values for each δ.
+    """
+    # round Q to the nearest integer
+    Q = np.round(Q).astype(int)
     
-#     Q_mean = np.mean(Q)
-#     Q_var = np.var(Q)  # Use np.var for more numerical stability
+    Q_mean = np.mean(Q)
+    Q_var = np.var(Q)  # Use np.var for more numerical stability
     
-#     if Q_var == 0:
-#         return np.ones(max_lag + 1)  # If variance is 0, return all 1 autocorrelations
+    if Q_var == 0:
+        return np.ones(max_lag + 1)  # If variance is 0, return all 1 autocorrelations
 
-#     autocorrelations = np.zeros(max_lag + 1)
+    autocorrelations = np.zeros(max_lag + 1)
 
-#     # Compute autocorrelation for each delta
-#     for delta in range(max_lag + 1):
-#         if delta == 0:
-#             autocorrelations[delta] = 1.0  # Normalized to 1 at delta=0
-#         else:
-#             # Ensure correct slicing to avoid index errors
-#             covariance = np.mean((Q[:-delta] - Q_mean) * (Q[delta:] - Q_mean))
-#             autocorrelations[delta] = covariance / Q_var
+    # Compute autocorrelation for each delta
+    for delta in range(max_lag + 1):
+        if delta == 0:
+            autocorrelations[delta] = 1.0  # Normalized to 1 at delta=0
+        else:
+            # Ensure correct slicing to avoid index errors
+            covariance = np.mean((Q[:-delta] - Q_mean) * (Q[delta:] - Q_mean))
+            autocorrelations[delta] = covariance / Q_var
 
-#     return autocorrelations
+    return autocorrelations
 
 
 def plot_results(thermalization_actions, actions, topological_charges, hamiltonians, autocorrelations, title_suffix=""):
