@@ -4,6 +4,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 # Base class for models
 class BaseModel(nn.Module):
@@ -50,13 +51,13 @@ class CNNModel(BaseModel):
         return x.view(-1, 2 * self.lattice_size * self.lattice_size)  # Flatten
     
 class NNFieldTransformation:
-    def __init__(self, lattice_size, model_type='CNN', epsilon=0.01, epsilon_decay=1):
+    def __init__(self, lattice_size, model_type='CNN', epsilon=0.01, epsilon_decay=1, device='cpu'):
         self.lattice_size = lattice_size
-        self.input_size = 2 * lattice_size * lattice_size  # Adjusted input size
-        self.output_size = 2 * lattice_size * lattice_size  # Adjusted output size
-        self.device = torch.device('cpu')  # Change to 'cuda' if using GPU
-        self.epsilon = epsilon  # Initial epsilon
-        self.epsilon_decay = epsilon_decay  # Decay factor for epsilon
+        self.input_size = 2 * lattice_size * lattice_size
+        self.output_size = 2 * lattice_size * lattice_size
+        self.device = torch.device(device)
+        self.epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
 
         # Choose the model type
         if model_type == 'SimpleNN':
@@ -68,29 +69,32 @@ class NNFieldTransformation:
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         self.model.to(self.device)
+        
+        # Set the default tensor type to match the model parameters
+        torch.set_default_tensor_type(torch.DoubleTensor)
 
-    def __call__(self, U):
-        # U has shape (2, L, L)
-        U_tensor = torch.tensor(U, dtype=torch.float32, device=self.device)
-        U_tensor = U_tensor.view(1, -1)  # Add batch dimension: shape (1, 2 * L * L)
+    def __call__(self, theta):
+        # theta has shape (2, L, L)
+        theta_tensor = theta.to(self.device).view(1, -1)  # Reshape to (1, 2 * L * L)
 
         # Forward pass through the neural network
-        delta_U_tensor = self.model(U_tensor)
+        delta_theta_tensor = self.model(theta_tensor)
 
         # Limit the transformation magnitude
-        U_transformed_tensor = U_tensor + self.epsilon * delta_U_tensor
+        theta_transformed_tensor = theta_tensor + self.epsilon * delta_theta_tensor
 
         # Reshape back to (2, L, L)
-        U_transformed = U_transformed_tensor.detach().cpu().numpy().reshape(U.shape)
+        theta_transformed = theta_transformed_tensor.view(2, self.lattice_size, self.lattice_size)
 
-        # Ensure angles are within [0, 2π)
-        U_transformed = np.mod(U_transformed, 2 * np.pi)
-        return U_transformed
+        # Ensure angles are within [-pi, pi)
+        theta_transformed = torch.remainder(theta_transformed + math.pi, 2 * math.pi) - math.pi
+        
+        return theta_transformed
     
-    def compute_force_torch(self, theta, hmc_instance):
+    def compute_force_torch(self, theta, beta):
         """Compute the force (gradient of the action) using PyTorch operations."""
         theta.requires_grad_(True)  # Ensure gradients are tracked
-        action = self.compute_action_torch(theta, hmc_instance)
+        action = self.compute_action_torch(theta, beta)
         force = torch.autograd.grad(action, theta, create_graph=True)[0]
         return force
     
@@ -98,16 +102,17 @@ class NNFieldTransformation:
         """Metropolis-Hastings acceptance step."""
         if delta_H < 0:
             return True
-        elif np.random.rand() < np.exp(-delta_H):
+        elif torch.rand(1, device=self.device).item() < math.exp(-delta_H):
             return True
         return False
             
-    def train(self, hmc_instance, n_iterations):
+    def train(self, beta, n_iterations):
         loss_history = []  # To store loss values
 
         for _ in tqdm(range(n_iterations), desc="Training Neural Network"):
-            U = hmc_instance.initialize()  # Initialize U with shape (2, L, L)
-            U_tensor = torch.tensor(U, dtype=torch.float32, device=self.device).view(1, -1)
+            # Initialize U with shape (2, L, L)
+            U = torch.empty((2, self.lattice_size, self.lattice_size), device=self.device).uniform_(-math.pi, math.pi)
+            U_tensor = U.view(1, -1)  # Reshape to (1, 2 * L * L)
 
             # Forward pass through the neural network
             delta_U_tensor = self.model(U_tensor)
@@ -115,10 +120,8 @@ class NNFieldTransformation:
             U_transformed = U_transformed_tensor.view(2, self.lattice_size, self.lattice_size)
             
             # Calculate original and transformed actions
-            action_original = self.compute_action_torch(
-                U_tensor.view(2, self.lattice_size, self.lattice_size), hmc_instance
-            )
-            action_transformed = self.compute_action_torch(U_transformed, hmc_instance)
+            action_original = self.compute_action_torch(U, beta)
+            action_transformed = self.compute_action_torch(U_transformed, beta)
 
             # Calculate Hamiltonian change and apply Metropolis-Hastings decision
             delta_H = action_transformed.item() - action_original.item()
@@ -126,13 +129,10 @@ class NNFieldTransformation:
                 continue  # If the new configuration is rejected, skip the optimization step
 
             # Compute forces (gradients of actions)
-            force_original = self.compute_force_torch(
-                U_tensor.view(2, self.lattice_size, self.lattice_size), hmc_instance
-            )
-            force_transformed = self.compute_force_torch(U_transformed, hmc_instance)
+            force_original = self.compute_force_torch(U, beta)
+            force_transformed = self.compute_force_torch(U_transformed, beta)
 
-            # Compute the loss using p-norm (e.g., p = 2)
-            # Use combined norm for loss calculation
+            # Compute the loss using combined norm
             loss = torch.norm(force_transformed - force_original, p=2) + torch.norm(force_transformed - force_original, p=float('inf'))
 
             # Log the loss
@@ -147,22 +147,19 @@ class NNFieldTransformation:
             self.epsilon *= self.epsilon_decay
 
         # Plot the loss history
-        plt.figure(figsize=(6, 4))
+        plt.figure(figsize=(9, 6))
         plt.plot(loss_history)
         plt.xlabel('Iteration')
         plt.ylabel('Loss')
-        plt.tick_params(direction="in", top="on", right="on")
-        plt.grid(linestyle=":")
         plt.title('Training Loss Over Time')
         plt.show()
     
-    def compute_action_torch(self, theta, hmc_instance):
+    def compute_action_torch(self, theta, beta):
         """
         Compute the action using PyTorch operations.
         theta: Tensor of shape (2, L, L)
+        beta: Inverse coupling constant
         """
-        beta = hmc_instance.beta
-
         # Extract theta components
         theta0 = theta[0]
         theta1 = theta[1]

@@ -137,15 +137,13 @@ class HMC_U1:
         Q = np.sum(theta_P_wrapped) / (2 * np.pi)
         return Q
     
-    def thermalize(self, field_transformation=None):
+    def thermalize(self):
         theta = self.initialize()
         
         actions = []
         acceptance_count = 0
         
         for _ in tqdm(range(self.n_thermalization_steps), desc="Thermalizing"):
-            if field_transformation:
-                theta = field_transformation(theta)
             theta, accepted, _ = self.metropolis_step(theta)
             actions.append(self.action(theta))
             if accepted:

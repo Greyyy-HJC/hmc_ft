@@ -71,25 +71,24 @@ class HMC_U1:
         """
         Compute the force (gradient of the action) for the current field configuration.
         """
-        theta.requires_grad_(True)
+        theta = theta.detach().requires_grad_(True)
         s = self.action(theta)
         force = grad(s, theta, create_graph=False, retain_graph=False)[0]
-        theta.requires_grad_(False)
         return force
 
     def leapfrog(self, theta, pi):
         """
         Perform leapfrog integration to numerically integrate the Hamiltonian equations for coordinates and momenta.
 
-        The leapfrog integration is used to propose new field configurations by simulating the dynamics of the system under a fictitious Hamiltonian. This method is symplectic and time-reversible, which are important properties for maintaining detailed balance in the HMC algorithm.
-
         Parameters:
-        theta (numpy.ndarray): Current field configuration (coordinates).
-        pi (numpy.ndarray): Current conjugate momenta.
+        theta (torch.Tensor): Current field configuration (coordinates).
+        pi (torch.Tensor): Current conjugate momenta.
 
         Returns:
         tuple: A pair (theta_new, pi_new) containing the updated field configuration and conjugate momenta.
         """
+        theta = theta.detach()
+        pi = pi.detach()
         pi = pi - 0.5 * self.dt * self.force(theta)
         for _ in range(self.n_steps):
             theta = theta + self.dt * pi
@@ -145,14 +144,12 @@ class HMC_U1:
         Q = torch.floor(0.1 + torch.sum(theta_P_wrapped) / (2 * math.pi))
         return Q.item()
 
-    def thermalize(self, field_transformation=None):
-        theta = self.initialize()
+    def thermalize(self):
+        theta = self.initialize()  # This should already return a PyTorch tensor
         actions = []
         acceptance_count = 0
 
         for _ in tqdm(range(self.n_thermalization_steps), desc="Thermalizing"):
-            if field_transformation:
-                theta = field_transformation(theta)
             theta, accepted, _ = self.metropolis_step(theta)
             actions.append(self.action(theta).item())
             if accepted:
