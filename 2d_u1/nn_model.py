@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
-import numpy as np
 import matplotlib.pyplot as plt
 import math
 
@@ -67,15 +66,12 @@ class NNFieldTransformation:
         else:
             raise ValueError(f"Unknown model_type '{model_type}'. Choose 'SimpleNN' or 'CNN'.")
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         self.model.to(self.device)
-        
-        # Set the default tensor type to match the model parameters
-        torch.set_default_tensor_type(torch.DoubleTensor)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
     def __call__(self, theta):
         # theta has shape (2, L, L)
-        theta_tensor = theta.to(self.device).view(1, -1)  # Reshape to (1, 2 * L * L)
+        theta_tensor = theta.to(self.device).view(1, -1)
 
         # Forward pass through the neural network
         delta_theta_tensor = self.model(theta_tensor)
@@ -92,14 +88,18 @@ class NNFieldTransformation:
         return theta_transformed
     
     def compute_force_torch(self, theta, beta):
-        """Compute the force (gradient of the action) using PyTorch operations."""
+        """
+        Compute the force (gradient of the action) using PyTorch operations.
+        """
         theta.requires_grad_(True)  # Ensure gradients are tracked
         action = self.compute_action_torch(theta, beta)
         force = torch.autograd.grad(action, theta, create_graph=True)[0]
         return force
     
     def metropolis_acceptance(self, delta_H):
-        """Metropolis-Hastings acceptance step."""
+        """
+        Metropolis-Hastings acceptance step.
+        """
         if delta_H < 0:
             return True
         elif torch.rand(1, device=self.device).item() < math.exp(-delta_H):
