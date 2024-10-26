@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from scipy.integrate import quad
 from scipy.special import i0, i1
 
@@ -48,6 +49,32 @@ def calculate_plaquette_from_field(theta):
     # Calculate the average plaquette value
     plaquette_value = np.mean(np.cos(theta_P))
     return plaquette_value
+
+# def calculate_plaquette_from_field(theta):
+#     """
+#     Calculate the average plaquette value for a given field configuration.
+
+#     Parameters:
+#     -----------
+#     theta : torch.Tensor
+#         The field configuration (PyTorch tensor).
+
+#     Returns:
+#     --------
+#     float
+#         The average plaquette value.
+#     """
+#     # Compute plaquette angles
+#     theta_P = (
+#         theta[0]
+#         + torch.roll(theta[1], shifts=-1, dims=0)
+#         - torch.roll(theta[0], shifts=-1, dims=1)
+#         - theta[1]
+#     )
+
+#     # Calculate the average plaquette value
+#     plaquette_value = torch.mean(torch.cos(theta_P))
+#     return plaquette_value.item()
 
 def chi_infinity(beta):
     """

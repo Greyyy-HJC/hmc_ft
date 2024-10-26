@@ -154,7 +154,7 @@ class HMC_U1:
         acceptance_rate = acceptance_count / self.n_thermalization_steps
         return theta, np.array(actions), acceptance_rate
 
-    def run(self, n_iterations, theta_thermalized, field_transformation=None):
+    def run(self, n_iterations, theta_thermalized):
         theta = theta_thermalized
         actions = []
         hamiltonians = []
@@ -162,9 +162,6 @@ class HMC_U1:
         topological_charges = []
 
         for _ in tqdm(range(n_iterations), desc="Running HMC"):
-            if field_transformation:
-                theta = field_transformation(theta)
-
             theta, accepted, H = self.metropolis_step(theta)
             actions.append(self.action(theta))
             hamiltonians.append(H)
