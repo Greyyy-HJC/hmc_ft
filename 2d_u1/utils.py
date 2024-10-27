@@ -1,10 +1,19 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import math
 from scipy.integrate import quad
 from scipy.special import i0, i1
 
-def plaquette_value(beta):
+def plaq_from_field(theta):
+    """
+    Calculate the plaquette value for a given field configuration.
+    """
+    theta0, theta1 = theta[0], theta[1]
+    thetaP = theta0 - theta1 - torch.roll(theta0, shifts=-1, dims=1) + torch.roll(theta1, shifts=-1, dims=0)
+    return thetaP
+
+def plaq_mean_theory(beta):
     """
     Compute the expected plaquette value <P> = I_1(beta) / I_0(beta),
     where I_n(beta) are the modified Bessel functions of the first kind.
@@ -18,63 +27,36 @@ def plaquette_value(beta):
         The expected plaquette value.
     """
     # Calculate modified Bessel functions I_1(beta) and I_0(beta)
-    I1 = i1(beta)
-    I0 = i0(beta)
+    I1_f = i1(beta)
+    I0_f = i0(beta)
 
     # Calculate plaquette value
-    P_expected = I1 / I0
+    P_expected = I1_f / I0_f
     return P_expected
 
-def calculate_plaquette_from_field(theta):
+def plaq_mean_from_field(theta):
     """
     Calculate the average plaquette value for a given field configuration.
-    
-    Parameters:
-    theta : numpy.ndarray
-        The field configuration (2, L, L), where theta[0] and theta[1] are
-        the U(1) angles for the x and y directions, respectively.
-
-    Returns:
-    float
-        The average plaquette value.
     """
-    # Compute plaquette angles: P = U0 * U1(x+1) * Udagger0(y+1) * Udagger1
-    theta_P = (
-        theta[0]
-        + np.roll(theta[1], shift=-1, axis=0)
-        - np.roll(theta[0], shift=-1, axis=1)
-        - theta[1]
-    )
-    
-    # Calculate the average plaquette value
-    plaquette_value = np.mean(np.cos(theta_P))
-    return plaquette_value
+    thetaP = plaq_from_field(theta)
+    plaq_mean = torch.mean(torch.cos(thetaP))
+    return plaq_mean
 
-# def calculate_plaquette_from_field(theta):
-#     """
-#     Calculate the average plaquette value for a given field configuration.
+def regularize(theta):
+    """
+    Regularize the plaquette value to the range [-pi, pi).
+    """
+    theta_wrapped = (theta - math.pi) / (2 * math.pi)
+    return 2 * math.pi * (theta_wrapped - torch.floor(theta_wrapped) - 0.5)
 
-#     Parameters:
-#     -----------
-#     theta : torch.Tensor
-#         The field configuration (PyTorch tensor).
-
-#     Returns:
-#     --------
-#     float
-#         The average plaquette value.
-#     """
-#     # Compute plaquette angles
-#     theta_P = (
-#         theta[0]
-#         + torch.roll(theta[1], shifts=-1, dims=0)
-#         - torch.roll(theta[0], shifts=-1, dims=1)
-#         - theta[1]
-#     )
-
-#     # Calculate the average plaquette value
-#     plaquette_value = torch.mean(torch.cos(theta_P))
-#     return plaquette_value.item()
+def topo_from_field(theta):
+    """
+    Calculate the topological charge for a given field configuration.
+    """
+    thetaP = plaq_from_field(theta)
+    thetaP_wrapped = regularize(thetaP)
+    topo = torch.floor(0.1 + torch.sum(thetaP_wrapped) / (2 * math.pi))
+    return topo
 
 def chi_infinity(beta):
     """
@@ -82,84 +64,63 @@ def chi_infinity(beta):
     """
     # define integrand
     def numerator_integrand(phi):
-        return (phi / (2 * np.pi)) ** 2 * np.exp(beta * np.cos(phi))
+        return (phi / (2 * math.pi)) ** 2 * math.exp(beta * math.cos(phi))
 
     def denominator_integrand(phi):
-        return np.exp(beta * np.cos(phi))
+        return math.exp(beta * math.cos(phi))
 
     # numerical integration
-    numerator, _ = quad(numerator_integrand, -np.pi, np.pi)
-    denominator, _ = quad(denominator_integrand, -np.pi, np.pi)
+    numerator, _ = quad(numerator_integrand, -math.pi, math.pi)
+    denominator, _ = quad(denominator_integrand, -math.pi, math.pi)
 
     return numerator / denominator
 
-def autocorrelation_from_chi(Q, delta, beta, volume):
+def auto_from_chi(topo, max_lag, beta, volume):
     """
-    Compute the autocorrelation function Γ_t(δ) as defined in Eq. (7).
+    Compute the autocorrelation function of a sequence of topological charges
+    using the method defined in Eq. (7).
     
     Parameters:
-    Q : numpy.ndarray
+    topo : numpy.ndarray
         Time series of topological charges.
-    delta : int
-        Lag δ for the autocorrelation.
+    max_lag : int
+        Maximum lag (i.e., maximum δ value).
     beta : float
         Lattice coupling constant.
     volume : int
         Lattice volume.
     
     Returns:
-    float
-        Autocorrelation value Γ_t(δ).
-    """
-    # compute the square average of the difference of topological charges
-    Q_diff_squared = np.mean((Q[:-delta] - Q[delta:]) ** 2)
-
-    # compute the infinite volume topological susceptibility χ_t^∞(β)
-    chi_t_inf = chi_infinity(beta)
-
-    # compute the autocorrelation function Γ_t(δ)
-    gamma_t_delta = 1 - Q_diff_squared / (2 * volume * chi_t_inf)
-    
-    return gamma_t_delta
-
-def compute_autocorrelation(Q, max_lag, beta, volume):
-    """
-    Compute the autocorrelation function of a sequence of topological charges.
-
-    Parameters:
-    Q : numpy.ndarray
-        Time series of topological charges.
-    max_lag : int
-        Maximum lag (i.e., maximum δ value).
-
-    Returns:
     autocorrelations : numpy.ndarray
         Autocorrelation values for each δ.
     """
-    # round Q to the nearest integer
-    Q = np.round(Q).astype(int)
-    Q_var = np.var(Q)  # Use np.var for more numerical stability
+    # round topo to the nearest integer
+    topo = np.round(topo).astype(int)
     
-    if Q_var == 0:
-        return np.ones(max_lag + 1)  # If variance is 0, return all 1 autocorrelations
-
+    # compute the infinite volume topological susceptibility χ_t^∞(β)
+    chi_t_inf = chi_infinity(beta)
+    
     autocorrelations = np.zeros(max_lag + 1)
-
+    
     # Compute autocorrelation for each delta
     for delta in range(max_lag + 1):
         if delta == 0:
             autocorrelations[delta] = 1.0  # Normalized to 1 at delta=0
         else:
-            autocorrelations[delta] = autocorrelation_from_chi(Q, delta, beta, volume)
-
+            # compute the square average of the difference of topological charges
+            topo_diff_squared = np.mean((topo[:-delta] - topo[delta:]) ** 2)
+            
+            # compute the autocorrelation function Γ_t(δ)
+            autocorrelations[delta] = 1 - topo_diff_squared / (2 * volume * chi_t_inf)
+    
     return autocorrelations
 
-def compute_autocorrelation_by_def(Q, max_lag):
+def auto_by_def(topo, max_lag):
     """
     Compute the autocorrelation function of a sequence of topological charges.
 
     Parameters:
-    Q : numpy.ndarray
+    topo : numpy.ndarray
         Time series of topological charges.
     max_lag : int
         Maximum lag (i.e., maximum δ value).
@@ -168,13 +129,13 @@ def compute_autocorrelation_by_def(Q, max_lag):
     autocorrelations : numpy.ndarray
         Autocorrelation values for each δ.
     """
-    # round Q to the nearest integer
-    Q = np.round(Q).astype(int)
+    # round topo to the nearest integer
+    topo = np.round(topo).astype(int)
     
-    Q_mean = np.mean(Q)
-    Q_var = np.var(Q)  # Use np.var for more numerical stability
+    topo_mean = np.mean(topo)
+    topo_var = np.var(topo)  # Use np.var for more numerical stability
     
-    if Q_var == 0:
+    if topo_var == 0:
         return np.ones(max_lag + 1)  # If variance is 0, return all 1 autocorrelations
 
     autocorrelations = np.zeros(max_lag + 1)
@@ -185,23 +146,43 @@ def compute_autocorrelation_by_def(Q, max_lag):
             autocorrelations[delta] = 1.0  # Normalized to 1 at delta=0
         else:
             # Ensure correct slicing to avoid index errors
-            covariance = np.mean((Q[:-delta] - Q_mean) * (Q[delta:] - Q_mean))
-            autocorrelations[delta] = covariance / Q_var
+            covariance = np.mean((topo[:-delta] - topo_mean) * (topo[delta:] - topo_mean))
+            autocorrelations[delta] = covariance / topo_var
 
     return autocorrelations
 
 
-def plot_results(thermalization_actions, actions, topological_charges, hamiltonians, autocorrelations, title_suffix=""):
+def hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, therm_acceptance_rate, acceptance_rate):
+    # Compute autocorrelation of topological charges
+    autocor_by_def = auto_by_def(topological_charges, max_lag)
+    autocor_from_chi = auto_from_chi(topological_charges, max_lag, beta, volume)
+
+
+    # Plot results
+    plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_by_def, title_suffix="(Using Auto by Definition)")
+
+    plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_from_chi, title_suffix="(Using Auto from Chi)")
+
+
+    # Print acceptance rates
+    print(f"Thermalization acceptance rate: {therm_acceptance_rate:.4f}")
+    print(f"Acceptance rate: {acceptance_rate:.4f}")
+    
+    return
+
+
+def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocorrelations, title_suffix=""):
     plt.figure(figsize=(18, 12))
     fontsize = 18  # Set the font size for labels and titles
 
     plt.subplot(221)
-    plt.plot(np.arange(len(thermalization_actions)), thermalization_actions, label='Thermalization Actions', color='blue')
-    plt.plot(np.arange(len(actions)) + len(thermalization_actions), actions, label='Actions', color='orange')
+    plt.plot(np.arange(len(therm_plaq_ls)), therm_plaq_ls, label='Thermalization Plaquette', color='blue')
+    plt.plot(np.arange(len(plaq_ls)) + len(therm_plaq_ls), plaq_ls, label='Plaquette', color='orange')
+    plt.axhline(y=plaq_mean_theory(beta), color='r', linestyle='--', label='Theoretical Plaquette')
     plt.legend()
-    plt.title(f'Action vs. Iteration {title_suffix}', fontsize=fontsize)
+    plt.title(f'Plaquette vs. Iteration {title_suffix}', fontsize=fontsize)
     plt.xlabel('Iteration', fontsize=fontsize)
-    plt.ylabel('Action', fontsize=fontsize)
+    plt.ylabel('Plaquette', fontsize=fontsize)
     plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
     plt.grid(linestyle=":")
 
@@ -213,15 +194,18 @@ def plot_results(thermalization_actions, actions, topological_charges, hamiltoni
     plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
     plt.grid(linestyle=":")
     plt.axhline(y=np.mean(hamiltonians), color='r', linestyle='--', label='Mean Hamiltonian')
+    plt.ylim(np.mean(hamiltonians) * 0.9, np.mean(hamiltonians) * 1.1)
     plt.legend(fontsize=fontsize-2)
 
     plt.subplot(223)
-    plt.plot(topological_charges)
+    plt.plot(topological_charges, marker='o', markersize=3)
+    plt.axhline(y=np.mean(topological_charges), color='r', linestyle='--', marker='o', markersize=3, label='Mean Topological Charge')
     plt.title(f'Topological Charge vs. Iteration {title_suffix}', fontsize=fontsize)
     plt.xlabel('Iteration', fontsize=fontsize)
     plt.ylabel('Topological Charge', fontsize=fontsize)
     plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
     plt.grid(linestyle=":")
+    plt.legend(fontsize=fontsize-2)
 
     plt.subplot(224)
     plt.plot(range(len(autocorrelations)), autocorrelations, marker='o')

@@ -47,7 +47,7 @@ class HMC_U1:
         self.n_thermalization_steps = n_thermalization_steps
         self.n_steps = n_steps
         self.dt = step_size
-        self.field_transformation = field_transformation  # This should now be the NNFieldTransformation instance
+        self.field_transformation = field_transformation 
         self.device = torch.device(device)
         self.jacobian_interval = jacobian_interval
         self.jacobian_cache = None
@@ -56,15 +56,13 @@ class HMC_U1:
         # Set default data type and device
         torch.set_default_dtype(torch.float64)
         torch.set_default_device(self.device)
-        torch.manual_seed(1331)
+        torch.manual_seed(2048)
 
     def initialize(self):
         """
-        Initialize the field configuration (theta) uniformly between -pi and pi.
+        Initialize the field configuration (theta) zero.
         """
-        return torch.empty(
-            [2, self.lattice_size, self.lattice_size], device=self.device
-        ).uniform_(-math.pi, math.pi)
+        return torch.zeros([2, self.lattice_size, self.lattice_size])
 
     def plaqphase(self, theta):
         """
@@ -153,15 +151,17 @@ class HMC_U1:
         theta : torch.Tensor
             Can be the old field configuration without transformation or the new field configuration after transformation.
         """
-        theta = theta.detach().requires_grad_(True)
+        theta.requires_grad_(True)
         
         if self.field_transformation is None:
             action_value = self.action(theta)
         else:
             action_value = self.transformed_action(theta)
 
-        force = grad(action_value, theta, create_graph=False, retain_graph=False)[0]
-        return force
+        action_value.backward()
+        ff = theta.grad
+        theta.requires_grad_(False)
+        return ff
 
     def leapfrog(self, theta, pi):
         """
@@ -175,13 +175,13 @@ class HMC_U1:
             The momentum.
         """
         dt = self.dt
-        pi = pi - 0.5 * dt * self.force(theta)
+        theta_ = theta + 0.5 * dt * pi
+        pi_ = pi - dt * self.force(theta_)
         for _ in range(self.n_steps):
-            theta = theta + dt * pi
-            theta = self.regularize(theta)
-            pi = pi - dt * self.force(theta)
-        theta = theta + 0.5 * dt * pi
-        return theta.detach(), pi
+            theta_ = theta_ + dt * pi_
+            pi_ = pi_ - dt * self.force(theta_)
+        theta_ = theta_ + 0.5 * dt * pi_
+        return theta_, pi_
 
     def metropolis_step(self, theta):
         """
@@ -219,11 +219,18 @@ class HMC_U1:
         else:
             return theta, False, H_old.item()
 
+    # def regularize(self, theta):
+    #     """
+    #     Regularize the angle to be within the range [-pi, pi].
+    #     """
+    #     return theta - 2 * math.pi * torch.floor((theta + math.pi) / (2 * math.pi))
+    
     def regularize(self, theta):
         """
         Regularize the angle to be within the range [-pi, pi].
         """
-        return theta - 2 * math.pi * torch.floor((theta + math.pi) / (2 * math.pi))
+        theta_res = (theta - math.pi) / (2*math.pi)
+        return (2*math.pi) * (theta_res - torch.floor(theta_res) - 0.5)
 
     def thermalize(self):
         """
@@ -254,15 +261,8 @@ class HMC_U1:
             if accepted:
                 acceptance_count += 1
 
-            # Print progress every 10% of thermalization
-            if (_ + 1) % (self.n_thermalization_steps // 10) == 0:
-                print(
-                    f"Thermalization progress: {(_+1)/self.n_thermalization_steps:.1%}, "
-                    f"Current action: {action_value:.2f}"
-                )
-
         acceptance_rate = acceptance_count / self.n_thermalization_steps
-        return theta, torch.tensor(actions), acceptance_rate
+        return theta, actions, acceptance_rate
 
     def run(self, n_iterations, theta):
         """
@@ -290,10 +290,10 @@ class HMC_U1:
         acceptance_rate = acceptance_count / n_iterations
         return (
             theta,
-            torch.tensor(actions),
+            actions,
             acceptance_rate,
-            torch.tensor(topological_charges),
-            torch.tensor(hamiltonians),
+            topological_charges,
+            hamiltonians,
         )
 
     def topological_charge(self, theta):
@@ -305,3 +305,4 @@ class HMC_U1:
         # add 0.1 to avoid round-off error
         Q = torch.floor(0.1 + torch.sum(theta_P_wrapped) / (2 * math.pi))
         return Q.item()
+
