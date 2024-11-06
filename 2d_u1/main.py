@@ -5,15 +5,15 @@ import os
 from hmc_u1 import HMC_U1
 from hmc_u1_ft import HMC_U1_FT
 from nn_model import NNFieldTransformation
-from utils import plot_results, auto_by_def, auto_from_chi, hmc_summary
+from utils import hmc_summary
 
 # Parameters
-lattice_size = 64
+lattice_size = 16
 volume = lattice_size ** 2
 beta = 6
 n_thermalization_steps = 30
 n_steps = 50
-step_size = 0.04
+step_size = 0.1
 n_iterations = 1024
 
 # Initialize device
@@ -69,7 +69,7 @@ print(nn_transformation.model)
 
 
 # Initialize HMC
-hmc = HMC_U1_FT(lattice_size, beta, n_thermalization_steps, n_steps, step_size, field_transformation=nn_transformation, jacobian_interval=100, device=device)
+hmc = HMC_U1_FT(lattice_size, beta, n_thermalization_steps, n_steps, step_size, field_transformation=nn_transformation, jacobian_interval=64, device=device)
 
 # Thermalize the system
 theta_thermalized, therm_plaq_ls, therm_acceptance_rate = hmc.thermalize()
