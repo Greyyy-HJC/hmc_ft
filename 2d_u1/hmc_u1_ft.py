@@ -1,7 +1,6 @@
 # %%
 import torch
 from tqdm import tqdm
-import os 
 import torch.linalg as linalg
 import torch.autograd.functional as F
 from utils import plaq_from_field, topo_from_field, plaq_mean_from_field
@@ -61,18 +60,13 @@ class HMC_U1_FT:
     def initialize(self):
         return torch.zeros([2, self.lattice_size, self.lattice_size])
     
-    def action(self, theta):
+    def original_action(self, theta):
         """
         Compute the action without field transformation.
-        
-        Parameters:
-        -----------
-        theta : torch.Tensor
-            The old field configuration without transformation.
         """
-        theta_P = plaq_from_field(theta)  # calculate plaquette phase
+        theta_P = plaq_from_field(theta)
         action_value = (-self.beta) * torch.sum(torch.cos(theta_P))
-
+        
         # check if action_value is a scalar
         assert action_value.dim() == 0, "Action value is not a scalar."
 
@@ -108,7 +102,7 @@ class HMC_U1_FT:
 
         return log_det
     
-    def transformed_action(self, theta_new):
+    def new_action(self, theta_new):
         """
         Compute the transformed action with the Jacobian term.
         
@@ -118,43 +112,43 @@ class HMC_U1_FT:
             The new field configuration after transformation.
         """
         theta = self.field_transformation(theta_new)
-        original_action = self.action(theta)
+        original_action_val = self.original_action(theta)
 
         jacobian_log_det = self.compute_jacobian_log_det(theta_new)
 
-        transformed_action_value = original_action - jacobian_log_det
+        new_action_val = original_action_val - jacobian_log_det
 
         assert (
-            transformed_action_value.dim() == 0
+            new_action_val.dim() == 0
         ), "Transformed action value is not a scalar."
 
-        return transformed_action_value
+        return new_action_val
 
-    def force(self, theta):
-        theta.requires_grad_(True)
-        action_value = self.transformed_action(theta)
+    def new_force(self, theta_new):
+        theta_new.requires_grad_(True)
+        action_value = self.new_action(theta_new)
         action_value.backward()
-        ff = theta.grad
-        theta.requires_grad_(False)
+        ff = theta_new.grad
+        theta_new.requires_grad_(False)
         return ff
 
     def leapfrog(self, theta, pi):
         dt = self.dt
         theta_ = theta + 0.5 * dt * pi
-        pi_ = pi - dt * self.force(theta_)
+        pi_ = pi - dt * self.new_force(theta_)
         for _ in range(self.n_steps - 1):
             theta_ = theta_ + dt * pi_
-            pi_ = pi_ - dt * self.force(theta_)
+            pi_ = pi_ - dt * self.new_force(theta_)
         theta_ = theta_ + 0.5 * dt * pi_
         return theta_, pi_
 
     def metropolis_step(self, theta):
         pi = torch.randn_like(theta, device=self.device)
-        action_value = self.transformed_action(theta)
+        action_value = self.new_action(theta)
         H_old = action_value + 0.5 * torch.sum(pi**2)
 
         new_theta, new_pi = self.leapfrog(theta.clone(), pi.clone())
-        new_action_value = self.transformed_action(new_theta)
+        new_action_value = self.new_action(new_theta)
         H_new = new_action_value + 0.5 * torch.sum(new_pi**2)
 
         delta_H = H_new - H_old
@@ -205,13 +199,13 @@ class HMC_U1_FT:
         topological_charges = []
 
         for i in tqdm(range(n_iterations), desc="Running HMC"):
-            theta, accepted, H = self.metropolis_step(theta)
+            theta, accepted, H_val = self.metropolis_step(theta)
             
             if i % store_interval == 0:  # only store data at specific intervals
                 theta_old = self.field_transformation(theta)
                 plaq = plaq_mean_from_field(theta_old).item()
                 plaq_ls.append(plaq)
-                hamiltonians.append(H)
+                hamiltonians.append(H_val)
                 topological_charges.append(topo_from_field(theta).item())
                 
             if accepted:

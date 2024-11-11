@@ -1,5 +1,4 @@
 # %%
-import numpy as np
 import torch
 import os
 from hmc_u1 import HMC_U1
@@ -8,12 +7,12 @@ from nn_model import NNFieldTransformation
 from utils import hmc_summary
 
 # Parameters
-lattice_size = 16
+lattice_size = 64
 volume = lattice_size ** 2
 beta = 6
 n_thermalization_steps = 30
 n_steps = 50
-step_size = 0.1
+step_size = 0.04
 n_iterations = 1024
 
 # Initialize device
@@ -60,7 +59,7 @@ hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, 
 print(">>> Neural Network Field Transformation HMC Simulation: ")
 
 # Train the neural network force
-nn_transformation = NNFieldTransformation(lattice_size, model_type='CNN', device=device)
+nn_transformation = NNFieldTransformation(lattice_size, model_type='CNN', epsilon=0.01, epsilon_decay=1, jacobian_interval=20, device=device)
 nn_transformation.train(beta, n_iterations=200)
 
 # Print the trained neural network structure and parameters
