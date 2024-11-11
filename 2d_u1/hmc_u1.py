@@ -4,7 +4,7 @@ from tqdm import tqdm
 import os 
 from utils import plaq_from_field, topo_from_field, plaq_mean_from_field
 
-def action(beta, theta):
+def action(theta, beta):
     theta_P = plaq_from_field(theta)
     action_value = (-beta) * torch.sum(torch.cos(theta_P))
     
@@ -62,10 +62,10 @@ class HMC_U1:
 
     def force(self, theta):
         theta.requires_grad_(True)
-        action_value = action(self.beta, theta)
+        action_value = action(theta, self.beta)
         action_value.backward()
         ff = theta.grad
-        theta.requires_grad_(False)
+        theta.requires_grad_(False) # so that the memory can be freed
         return ff
 
     def leapfrog(self, theta, pi):
@@ -80,11 +80,11 @@ class HMC_U1:
 
     def metropolis_step(self, theta):
         pi = torch.randn_like(theta, device=self.device)
-        action_value = action(self.beta, theta)
+        action_value = action(theta, self.beta)
         H_old = action_value + 0.5 * torch.sum(pi**2)
 
         new_theta, new_pi = self.leapfrog(theta.clone(), pi.clone())
-        new_action_value = action(self.beta, new_theta)
+        new_action_value = action(new_theta, self.beta)
         H_new = new_action_value + 0.5 * torch.sum(new_pi**2)
 
         delta_H = H_new - H_old
@@ -129,12 +129,12 @@ class HMC_U1:
         topological_charges = []
 
         for i in tqdm(range(n_iterations), desc="Running HMC"):
-            theta, accepted, H = self.metropolis_step(theta)
+            theta, accepted, H_val = self.metropolis_step(theta)
             
             if i % store_interval == 0:  # only store data at specific intervals
                 plaq = plaq_mean_from_field(theta).item()
                 plaq_ls.append(plaq)
-                hamiltonians.append(H)
+                hamiltonians.append(H_val)
                 topological_charges.append(topo_from_field(theta).item())
                 
             if accepted:

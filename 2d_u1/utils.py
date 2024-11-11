@@ -151,7 +151,6 @@ def auto_by_def(topo, max_lag):
 
     return autocorrelations
 
-
 def hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, therm_acceptance_rate, acceptance_rate):
     # Compute autocorrelation of topological charges
     autocor_by_def = auto_by_def(topological_charges, max_lag)
@@ -162,7 +161,6 @@ def hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charg
     plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_by_def, title_suffix="(Using Auto by Definition)")
 
     plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_from_chi, title_suffix="(Using Auto from Chi)")
-
 
     # Print acceptance rates
     print(f"Thermalization acceptance rate: {therm_acceptance_rate:.4f}")

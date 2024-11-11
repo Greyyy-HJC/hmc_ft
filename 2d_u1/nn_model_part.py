@@ -48,10 +48,20 @@ class CNNModel(BaseModel):
         )
 
     def forward(self, x):
-        x = x.view(-1, 2, self.lattice_size, self.lattice_size)  # Ensure correct shape
-        x = self.conv_layers(x)  # Apply convolution
-        x += x  # local update superposition
-        return x.view(-1, 2 * self.lattice_size * self.lattice_size)  # Flatten
+        x_reshaped = x.view(-1, 2, self.lattice_size, self.lattice_size)
+        mask1 = torch.zeros_like(x_reshaped)
+        mask1[:, 0, 1::2, 1::2] = 1  # Set 1 for odd indices in both dimensions for channel 0
+
+        mask2 = torch.zeros_like(x_reshaped)
+        mask2[:, 1, 0::2, 0::2] = 1  # Set 1 for even indices in both dimensions for channel 1
+
+        for mask in [mask1, mask2]:
+            y = x_reshaped.clone()  # Ensure correct shape
+            y = y * mask
+            y = self.conv_layers(y)
+            x_reshaped = x_reshaped + y
+
+        return x_reshaped.view(-1, 2 * self.lattice_size * self.lattice_size)  # Flatten
     
 class NNFieldTransformation:
     def __init__(self, lattice_size, model_type='CNN', epsilon=0.1, epsilon_decay=1, jacobian_interval=20, device='cpu'):
