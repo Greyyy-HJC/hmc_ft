@@ -38,15 +38,16 @@ def compute_jacobian_log_det(theta_new, field_transformation):
     # Compute Jacobian using torch.autograd.functional.jacobian
     jacobian = F.jacobian(field_transformation, theta_new)
 
-    print(jacobian.shape)
-
     # Reshape the Jacobian to a 2D matrix
     jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
 
-    print(jacobian_2d.shape)
-
     # Compute singular values
     s = linalg.svdvals(jacobian_2d)
+
+    # Print any negative singular values
+    negative_values = s[s < 0]
+    if len(negative_values) > 0:
+        print("Warning: Found negative singular values:", negative_values)
 
     # Compute log determinant as sum of log of singular values
     log_det = torch.sum(torch.log(s))
