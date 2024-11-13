@@ -47,39 +47,16 @@ class CNNModel(BaseModel):
             nn.Conv2d(32, 2, kernel_size=3, padding=1)   # Output channels = 2
         )
 
+        # Initialize the last layer to output zeros
+        # last_conv = self.conv_layers[-1]
+        # nn.init.zeros_(last_conv.weight)
+        # nn.init.zeros_(last_conv.bias)
+
     def forward(self, x):
-        x_reshaped = x.view(-1, 2, self.lattice_size, self.lattice_size)
-        mask1 = torch.zeros_like(x_reshaped)
-        mask1[:, 0, 1::2, 1::2] = 1  # Set 1 for odd indices in both dimensions for channel 0
-
-        mask2 = torch.zeros_like(x_reshaped)
-        mask2[:, 1, 0::2, 0::2] = 1  # Set 1 for even indices in both dimensions for channel 1
-
-        mask3 = torch.zeros_like(x_reshaped)
-        mask3[:, 0, 0::2, 0::2] = 1  # Set 1 for even indices in both dimensions for channel 0
-
-        mask4 = torch.zeros_like(x_reshaped)
-        mask4[:, 1, 1::2, 1::2] = 1  # Set 1 for odd indices in both dimensions for channel 1
-
-        mask5 = torch.zeros_like(x_reshaped)
-        mask5[:, 0, 0::2, 1::2] = 1  # Set 1 for odd and even indices in both dimensions for channel 0
-
-        mask6 = torch.zeros_like(x_reshaped)
-        mask6[:, 1, 1::2, 0::2] = 1
-
-        mask7 = torch.zeros_like(x_reshaped)
-        mask7[:, 0, 1::2, 0::2] = 1
-
-        mask8 = torch.zeros_like(x_reshaped)
-        mask8[:, 1, 0::2, 1::2] = 1
-
-        for mask in [mask1, mask2, mask3, mask4, mask5, mask6, mask7, mask8]:
-            y = x_reshaped.clone()  # Ensure correct shape
-            y = y * mask
-            y = self.conv_layers(y)
-            x_reshaped = x_reshaped + y
-
-        return x_reshaped.view(-1, 2 * self.lattice_size * self.lattice_size)  # Flatten
+        x = x.view(-1, 2, self.lattice_size, self.lattice_size)  # Ensure correct shape
+        x = self.conv_layers(x)  # Apply convolution
+        # x += x  # local update superposition
+        return x.view(-1, 2 * self.lattice_size * self.lattice_size)  # Flatten
     
 class NNFieldTransformation:
     def __init__(self, lattice_size, model_type='CNN', epsilon=0.1, epsilon_decay=1, jacobian_interval=20, device='cpu'):
@@ -155,8 +132,8 @@ class NNFieldTransformation:
         # Compute Jacobian using torch.autograd.functional.jacobian
         jacobian = F.jacobian(self.field_transformation, theta_new)
 
-        # Reshape jacobian to 2D matrix
-        jacobian_2d = jacobian.view(-1, jacobian.shape[-1])
+        # Reshape the Jacobian to a 2D matrix
+        jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
 
         # Compute singular values
         s = linalg.svdvals(jacobian_2d)

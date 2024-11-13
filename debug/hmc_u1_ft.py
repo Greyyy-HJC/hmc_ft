@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 import torch.linalg as linalg
 import torch.autograd.functional as F
-from utils import plaq_from_field, topo_from_field, topo_tensor_from_field, plaq_mean_from_field
+from utils import plaq_from_field, topo_from_field, plaq_mean_from_field
 
 
 class HMC_U1_FT:
@@ -72,6 +72,15 @@ class HMC_U1_FT:
 
         return action_value
     
+    def old_force(self, theta):
+        theta = theta.detach()
+        theta.requires_grad_(True)
+        action_value = self.original_action(theta)
+        action_value.backward()
+        ff = theta.grad
+        theta.requires_grad_(False)
+        return ff
+    
     def compute_jacobian_log_det(self, theta_new):
         """
         Compute the log determinant of the Jacobian matrix of the transformation.
@@ -88,8 +97,8 @@ class HMC_U1_FT:
         # Compute Jacobian using torch.autograd.functional.jacobian
         jacobian = F.jacobian(self.field_transformation, theta_new)
 
-        # Reshape jacobian to 2D matrix
-        jacobian_2d = jacobian.view(-1, jacobian.shape[-1])
+        # Reshape the Jacobian to a 2D matrix
+        jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
 
         # Compute singular values
         s = linalg.svdvals(jacobian_2d)
@@ -206,9 +215,12 @@ class HMC_U1_FT:
                 plaq = plaq_mean_from_field(theta_old).item()
                 plaq_ls.append(plaq)
                 hamiltonians.append(H_val)
-                # topological_charges.append(topo_from_field(theta).item()) # todo: topo tensor 
- 
-                # print(topo_tensor_from_field(theta).item())
+                topological_charges.append(topo_from_field(theta).item())
+
+                if i % 10 == 0:
+                    old_force = torch.norm( self.old_force(theta_old) , p=2)
+                    new_force = torch.norm( self.new_force(theta) , p=2)
+                    print(f"Norm of New Force: {new_force}, Norm of Old Force: {old_force}")
                 
             if accepted:
                 acceptance_count += 1

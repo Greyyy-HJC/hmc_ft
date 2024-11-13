@@ -4,6 +4,8 @@ import torch
 import math
 from scipy.integrate import quad
 from scipy.special import i0, i1
+import torch.linalg as linalg
+import torch.autograd.functional as F
 
 def plaq_from_field(theta):
     """
@@ -56,15 +58,6 @@ def topo_from_field(theta):
     thetaP = plaq_from_field(theta)
     thetaP_wrapped = regularize(thetaP)
     topo = torch.floor(0.1 + torch.sum(thetaP_wrapped) / (2 * math.pi))
-    return topo
-
-def topo_tensor_from_field(theta):
-    """
-    Calculate the topological charge for a given field configuration.
-    """
-    thetaP = plaq_from_field(theta)
-    thetaP_wrapped = regularize(thetaP)
-    topo = torch.floor(0.1 + thetaP_wrapped / (2 * math.pi))
     return topo
 
 def chi_infinity(beta):
@@ -159,6 +152,29 @@ def auto_by_def(topo, max_lag):
             autocorrelations[delta] = covariance / topo_var
 
     return autocorrelations
+
+def compute_jacobian_log_det(theta_new, field_transformation):
+    """
+    Compute the log determinant of the Jacobian matrix of the transformation.
+
+    Parameters:
+    -----------
+    theta_new : torch.Tensor
+        The new field configuration after transformation.
+    """
+    # Compute Jacobian using torch.autograd.functional.jacobian
+    jacobian = F.jacobian(field_transformation, theta_new)
+
+    # Reshape the Jacobian to a 2D matrix
+    jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
+
+    # Compute singular values
+    s = linalg.svdvals(jacobian_2d)
+
+    # Compute log determinant as sum of log of singular values
+    log_det = torch.sum(torch.log(s))
+
+    return log_det
 
 def hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, therm_acceptance_rate, acceptance_rate):
     # Compute autocorrelation of topological charges

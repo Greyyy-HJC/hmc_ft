@@ -47,6 +47,10 @@ class CNNModel(BaseModel):
             nn.Conv2d(32, 2, kernel_size=3, padding=1)   # Output channels = 2
         )
 
+        # Initialize the weights of the final convolutional layer to start from identity transformation
+        # self.conv_layers[-1].weight.data = torch.zeros_like(self.conv_layers[-1].weight.data)
+        # self.conv_layers[-1].bias.data = torch.zeros_like(self.conv_layers[-1].bias.data)
+
     def forward(self, x):
         x = x.view(-1, 2, self.lattice_size, self.lattice_size)  # Ensure correct shape
         x = self.conv_layers(x)  # Apply convolution
