@@ -9,7 +9,7 @@ import torch.autograd.functional as F
 from utils import plaq_from_field, regularize
 
 class StableCNN(nn.Module):
-    def __init__(self, input_channels=1, output_channels=1, hidden_channels=32, kernel_size=3):
+    def __init__(self, input_channels=1, output_channels=1, hidden_channels=64, kernel_size=3):
         super(StableCNN, self).__init__()
         self.conv_layers = nn.Sequential(
             nn.Conv2d(input_channels, hidden_channels, kernel_size, padding=1),
@@ -149,12 +149,13 @@ class NNFieldTransformation:
 
         # Check if the Jacobian is positive definite
         if not torch.all(s > 0):
-            print("Jacobian is not positive definite!")
+            print(">>> Warning: Jacobian is not positive definite!")
 
         # Cache the result
         self.jacobian_cache = log_det
 
         return log_det
+
     
     def new_action(self, theta_new, beta):
         theta_ori = self.field_transformation(theta_new)
@@ -196,7 +197,8 @@ class NNFieldTransformation:
         return force
             
     def train(self, beta, n_epochs=100):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        # optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=0.001, weight_decay=1e-4)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 
         loss_history = []  # To store loss values
