@@ -11,7 +11,8 @@ def plaq_from_field(theta):
     """
     theta0, theta1 = theta[0], theta[1]
     thetaP = theta0 - theta1 - torch.roll(theta0, shifts=-1, dims=1) + torch.roll(theta1, shifts=-1, dims=0)
-    return thetaP
+
+    return regularize(thetaP)
 
 def plaq_mean_theory(beta):
     """
@@ -186,7 +187,7 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
     plt.plot(np.arange(len(therm_plaq_ls)), therm_plaq_ls, label='Thermalization Plaquette', color='blue')
     plt.plot(np.arange(len(plaq_ls)) + len(therm_plaq_ls), plaq_ls, label='Plaquette', color='orange')
     plt.axhline(y=plaq_mean_theory(beta), color='r', linestyle='--', label='Theoretical Plaquette')
-    plt.legend()
+    plt.legend(loc='upper right', fontsize=fontsize-2)
     plt.title(f'Plaquette vs. Iteration {title_suffix}', fontsize=fontsize)
     plt.xlabel('Iteration', fontsize=fontsize)
     plt.ylabel('Plaquette', fontsize=fontsize)
@@ -205,7 +206,7 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
     plt.grid(linestyle=":")
     plt.axhline(y=np.mean(hamiltonians), color='r', linestyle='--', label='Mean Hamiltonian')
     plt.ylim(np.mean(hamiltonians) * 0.9, np.mean(hamiltonians) * 1.1)
-    plt.legend(fontsize=fontsize-2)
+    plt.legend(fontsize=fontsize-2, loc='upper right')
 
     plt.subplot(223)
     plt.plot(topological_charges, marker='o', markersize=3)
@@ -215,7 +216,7 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
     plt.ylabel('Topological Charge', fontsize=fontsize)
     plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
     plt.grid(linestyle=":")
-    plt.legend(fontsize=fontsize-2)
+    plt.legend(fontsize=fontsize-2, loc='upper right')
 
     plt.subplot(224)
     plt.plot(range(len(autocorrelations)), autocorrelations, marker='o')

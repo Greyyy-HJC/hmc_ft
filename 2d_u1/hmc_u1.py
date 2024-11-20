@@ -2,7 +2,7 @@
 import torch
 from tqdm import tqdm
 import os 
-from utils import plaq_from_field, topo_from_field, plaq_mean_from_field
+from utils import plaq_from_field, topo_from_field, plaq_mean_from_field, regularize
 
 def action(theta, beta):
     theta_P = plaq_from_field(theta)
@@ -76,6 +76,7 @@ class HMC_U1:
             theta_ = theta_ + dt * pi_
             pi_ = pi_ - dt * self.force(theta_)
         theta_ = theta_ + 0.5 * dt * pi_
+        theta_ = regularize(theta_)
         return theta_, pi_
 
     def metropolis_step(self, theta):
@@ -136,7 +137,7 @@ class HMC_U1:
                 plaq_ls.append(plaq)
                 hamiltonians.append(H_val)
                 topological_charges.append(topo_from_field(theta).item())
-                
+
             if accepted:
                 acceptance_count += 1
 

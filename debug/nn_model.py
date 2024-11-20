@@ -55,7 +55,6 @@ class CNNModel(BaseModel):
     def forward(self, x):
         x = x.view(-1, 2, self.lattice_size, self.lattice_size)  # Ensure correct shape
         x = self.conv_layers(x)  # Apply convolution
-        # x += x  # local update superposition
         return x.view(-1, 2 * self.lattice_size * self.lattice_size)  # Flatten
     
 class NNFieldTransformation:
@@ -190,6 +189,10 @@ class NNFieldTransformation:
             # U_ini = torch.empty((2, self.lattice_size, self.lattice_size), device=self.device).uniform_(-math.pi, math.pi)
             U_ini = torch.zeros([2, self.lattice_size, self.lattice_size])
             U_transformed = self.field_transformation(U_ini)
+
+            if self.step_count % self.jacobian_interval == 0:
+                jac_log_det = self.compute_jacobian_log_det(U_ini)
+                print(">>> Jacobian log det: ", jac_log_det)
 
             # Compute forces (gradients of actions)
             force_original = self.original_force(U_transformed, beta)
