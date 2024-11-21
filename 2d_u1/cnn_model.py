@@ -21,6 +21,8 @@ class StableCNN(nn.Module):
 
     def forward(self, x):
         x = self.conv_layers(x)
+        # Scale output to [-pi, pi] range using tanh
+        x = torch.pi * torch.tanh(x)
         return x
 
 
@@ -40,7 +42,32 @@ def compute_neighbor_contributions(plaqphase, L, device):
     neighbor_contributions[1, 3] = torch.roll(plaqphase, shifts=(0, -1), dims=(0, 1))  # (x, y-1)
     neighbor_contributions[1, 4] = plaqphase + torch.roll(plaqphase, shifts=(-1, 0), dims=(0, 1))  # (x, y) + (x-1, y)
 
-    return neighbor_contributions
+    angle_input = torch.zeros((2, 10, L, L), dtype=torch.float32, device=device)
+
+    angle_input[0, 0] = torch.cos(neighbor_contributions[0, 0])
+    angle_input[0, 1] = torch.sin(neighbor_contributions[0, 0])
+    angle_input[0, 2] = torch.cos(neighbor_contributions[0, 1])
+    angle_input[0, 3] = torch.sin(neighbor_contributions[0, 1])
+    angle_input[0, 4] = torch.cos(neighbor_contributions[0, 2])
+    angle_input[0, 5] = torch.sin(neighbor_contributions[0, 2])
+    angle_input[0, 6] = torch.cos(neighbor_contributions[0, 3])
+    angle_input[0, 7] = torch.sin(neighbor_contributions[0, 3])
+    angle_input[0, 8] = torch.cos(neighbor_contributions[0, 4])
+    angle_input[0, 9] = torch.sin(neighbor_contributions[0, 4])
+
+    angle_input[1, 0] = torch.cos(neighbor_contributions[1, 0])
+    angle_input[1, 1] = torch.sin(neighbor_contributions[1, 0])
+    angle_input[1, 2] = torch.cos(neighbor_contributions[1, 1])
+    angle_input[1, 3] = torch.sin(neighbor_contributions[1, 1])
+    angle_input[1, 4] = torch.cos(neighbor_contributions[1, 2])
+    angle_input[1, 5] = torch.sin(neighbor_contributions[1, 2])
+    angle_input[1, 6] = torch.cos(neighbor_contributions[1, 3])
+    angle_input[1, 7] = torch.sin(neighbor_contributions[1, 3])
+    angle_input[1, 8] = torch.cos(neighbor_contributions[1, 4])
+    angle_input[1, 9] = torch.sin(neighbor_contributions[1, 4])
+
+    return angle_input
+    # return neighbor_contributions
 
 
 class NNFieldTransformation:
@@ -51,15 +78,14 @@ class NNFieldTransformation:
         self.jacobian_interval = jacobian_interval
 
         # Initialize CNN model
-        self.model = StableCNN(input_channels=5)
+        self.model = StableCNN(input_channels=10)
         self.model.to(self.device)
 
     def __call__(self, theta_new):
         L = self.lattice_size
 
-        # Compute plaquette phase and add a factor of `i`
-        # plaqphase = torch.exp(1j * plaq_from_field(theta_new))
         plaqphase = plaq_from_field(theta_new)
+        plaqphase = regularize(plaqphase)
 
         # Collect neighborhood features for CNN input
         neighbor_contributions = compute_neighbor_contributions(plaqphase, L, self.device)
@@ -86,14 +112,16 @@ class NNFieldTransformation:
         """
         Define a field transformation function. Field transformation transforms the new field back to the original field.
         """
-        return regularize( self(theta_new) )
+        # return regularize( self(theta_new) )
+        return self(theta_new)
     
     def original_action(self, theta_ori, beta):
         """
         Compute the action without field transformation.
         """
         theta_P = plaq_from_field(theta_ori)
-        action_value = (-beta) * torch.sum(torch.cos(theta_P))
+        theta_wrapped = regularize(theta_P)
+        action_value = (-beta) * torch.sum(torch.cos(theta_wrapped))
         
         # check if action_value is a scalar
         assert action_value.dim() == 0, "Action value is not a scalar."
@@ -119,37 +147,16 @@ class NNFieldTransformation:
         # Use cached Jacobian if available and not expired        
         if self.step_count % self.jacobian_interval != 0:
             return self.jacobian_cache
-        
-        theta_ori = self.field_transformation(theta_new)
 
         # Compute Jacobian using torch.autograd.functional.jacobian
         jacobian = F.jacobian(self.field_transformation, theta_new)
 
         # Reshape jacobian to 2D matrix
         jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
-
-        # Flatten theta_ori and theta_new to 1D vectors
-        theta_ori_flat = theta_ori.view(-1)  # Shape: (2*16*16,)
-        theta_new_flat = theta_new.view(-1)  # Shape: (2*16*16,)
-
-        # Generate outer product tensor
-        diff_matrix = theta_ori_flat.unsqueeze(1) - theta_new_flat.unsqueeze(0)  # Shape: (512, 512)
-        diff_matrix = regularize(diff_matrix)
-
-
-        # TODO: check this part
-        # Complete jacobian
-        jacobian_complete = jacobian_2d # * torch.exp(1j * diff_matrix)
-
-        # Compute singular values
-        s = linalg.svdvals(jacobian_complete)
-
-        # Compute log determinant as sum of log of singular values
-        log_det = torch.sum(torch.log(s))
-
-        # Check if the Jacobian is positive definite
-        if not torch.all(s > 0):
-            print(">>> Warning: Jacobian is not positive definite!")
+        log_det = torch.logdet(jacobian_2d)
+        
+        if torch.isnan(log_det) or torch.isinf(log_det):
+            print(">>> Warning: Invalid values detected of the log det Jacobian!")
 
         # Cache the result
         self.jacobian_cache = log_det
@@ -209,12 +216,18 @@ class NNFieldTransformation:
             theta_new = torch.empty((2, self.lattice_size, self.lattice_size), device=self.device).uniform_(-math.pi, math.pi)
 
             # Compute forces (gradients of actions)
-            force_original = self.original_force(theta_new, beta=2.5) # so that to make the new force smaller
+            # force_original = self.original_force(theta_new, beta=2.5) # so that to make the new force smaller
+
+            #todo
+            theta_ori = self.field_transformation(theta_new)
+            theta_ori = regularize(theta_ori)
+            force_original = self.original_force(theta_ori, beta)
+
             force_new = self.new_force(theta_new, beta)
 
             # Compute the loss using combined norm
             vol = self.lattice_size ** 2
-            loss = torch.norm(force_new - force_original, p=2) / (vol ** (1/2)) # + torch.norm(force_new - force_original, p=4) / (vol ** (1/4))
+            loss = torch.norm(force_new - force_original, p=2) #/ (vol ** (1/2)) + torch.norm(force_new - force_original, p=4) / (vol ** (1/4))
 
             if torch.isnan(loss).any():
                 print("Loss is NaN!")

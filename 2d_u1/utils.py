@@ -12,7 +12,7 @@ def plaq_from_field(theta):
     theta0, theta1 = theta[0], theta[1]
     thetaP = theta0 - theta1 - torch.roll(theta0, shifts=-1, dims=1) + torch.roll(theta1, shifts=-1, dims=0)
 
-    return regularize(thetaP)
+    return thetaP
 
 def plaq_mean_theory(beta):
     """
@@ -40,7 +40,9 @@ def plaq_mean_from_field(theta):
     Calculate the average plaquette value for a given field configuration.
     """
     thetaP = plaq_from_field(theta)
-    plaq_mean = torch.mean(torch.cos(thetaP))
+    thetaP_wrapped = regularize(thetaP)
+    # plaq_mean = torch.mean(torch.cos(thetaP_wrapped))
+    plaq_mean = torch.mean(torch.cos(thetaP)) #todo
     return plaq_mean
 
 def regularize(theta):
@@ -164,13 +166,13 @@ def auto_by_def(topo, max_lag):
 def hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, therm_acceptance_rate, acceptance_rate):
     # Compute autocorrelation of topological charges
     autocor_by_def = auto_by_def(topological_charges, max_lag)
-    autocor_from_chi = auto_from_chi(topological_charges, max_lag, beta, volume)
+    # autocor_from_chi = auto_from_chi(topological_charges, max_lag, beta, volume)
 
 
     # Plot results
     plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_by_def, title_suffix="(Using Auto by Definition)")
 
-    plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_from_chi, title_suffix="(Using Auto from Chi)")
+    # plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_from_chi, title_suffix="(Using Auto from Chi)")
 
     # Print acceptance rates
     print(f"Thermalization acceptance rate: {therm_acceptance_rate:.4f}")
@@ -193,9 +195,6 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
     plt.ylabel('Plaquette', fontsize=fontsize)
     plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
     plt.grid(linestyle=":")
-
-    print(">>> Mean plaq: ", np.mean(plaq_ls))
-    print(">>> Std plaq: ", np.std(plaq_ls))
 
     plt.subplot(222)
     plt.plot(hamiltonians)
@@ -228,3 +227,7 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
 
     plt.tight_layout()
     plt.show()
+
+    print(">>> Theoretical plaquette: ", plaq_mean_theory(beta))
+    print(">>> Mean plaq: ", np.mean(plaq_ls))
+    print(">>> Std of mean plaq: ", np.std(plaq_ls) / np.sqrt(len(plaq_ls)))

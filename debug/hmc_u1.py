@@ -139,7 +139,7 @@ class HMC_U1:
 
                 if i % 10 == 0:
                     force = torch.norm( self.force(theta) , p=2)
-                    print(f"Norm of Force: {force}")
+                    # print(f"Norm of Force: {force}")
                 
             if accepted:
                 acceptance_count += 1

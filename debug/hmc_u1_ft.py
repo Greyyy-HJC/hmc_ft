@@ -220,7 +220,7 @@ class HMC_U1_FT:
                 if i % 10 == 0:
                     old_force = torch.norm( self.old_force(theta_old) , p=2)
                     new_force = torch.norm( self.new_force(theta) , p=2)
-                    print(f"Norm of New Force: {new_force}, Norm of Old Force: {old_force}")
+                    # print(f"Norm of New Force: {new_force}, Norm of Old Force: {old_force}")
                 
             if accepted:
                 acceptance_count += 1

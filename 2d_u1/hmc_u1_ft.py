@@ -53,7 +53,7 @@ class HMC_U1_FT:
         # Set default data type and device
         torch.set_default_dtype(torch.float32)
         torch.set_default_device(self.device)
-        torch.manual_seed(1984)
+        torch.manual_seed(1331)
 
     def initialize(self):
         """
@@ -81,7 +81,8 @@ class HMC_U1_FT:
             The action value.
         """
         theta_P = plaq_from_field(theta)
-        action_value = (-self.beta) * torch.sum(torch.cos(theta_P))
+        thetaP_wrapped = regularize(theta_P)
+        action_value = (-self.beta) * torch.sum(torch.cos(thetaP_wrapped))
         
         # Check if action_value is a scalar
         assert action_value.dim() == 0, "Action value is not a scalar."
@@ -108,31 +109,17 @@ class HMC_U1_FT:
         if self.step_count % self.jacobian_interval != 0:
             return self.jacobian_cache
         
-        with torch.no_grad():
-            theta_ori = regularize(self.field_transformation(theta_new))
+        # Compute Jacobian using torch.autograd.functional.jacobian
+        jacobian = F.jacobian(self.field_transformation, theta_new)
 
-            # Compute Jacobian using torch.autograd.functional.jacobian
-            jacobian = F.jacobian(self.field_transformation, theta_new)
-
-            # Reshape jacobian to 2D matrix
-            jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
-
-            # Flatten theta_ori and theta_new to 1D vectors
-            theta_ori_flat = theta_ori.view(-1)  # Shape: (2*16*16,)
-            theta_new_flat = theta_new.view(-1)  # Shape: (2*16*16,)
-
-            # Generate outer product tensor
-            diff_matrix = theta_ori_flat.unsqueeze(1) - theta_new_flat.unsqueeze(0)  # Shape: (512, 512)
-            diff_matrix = regularize(diff_matrix)
-
-            # Complete jacobian
-            jacobian_complete = jacobian_2d * torch.exp(1j * diff_matrix)
-
-            # Compute singular values
-            s = linalg.svdvals(jacobian_complete)
-
-            # Compute log determinant as sum of log of singular values
-            log_det = torch.sum(torch.log(s))
+        # Reshape jacobian to 2D matrix
+        jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
+        log_det = torch.logdet(jacobian_2d)
+        # s = linalg.svdvals(jacobian_2d) # todo
+        # log_det = torch.sum(torch.log(s))
+        
+        if torch.isnan(log_det) or torch.isinf(log_det):
+            print(">>> Warning: Invalid values detected of the log det Jacobian!")
 
         # Cache the result
         self.jacobian_cache = log_det
@@ -153,7 +140,8 @@ class HMC_U1_FT:
         torch.Tensor
             The transformed action value.
         """
-        theta_ori = regularize(self.field_transformation(theta_new))
+        theta_ori = self.field_transformation(theta_new)
+        theta_ori = regularize(theta_ori)
 
         original_action_val = self.original_action(theta_ori)
 
@@ -259,7 +247,8 @@ class HMC_U1_FT:
         acceptance_count = 0
 
         for _ in tqdm(range(self.n_thermalization_steps), desc="Thermalizing"):
-            theta_ori = regularize(self.field_transformation(theta_new))
+            theta_ori = self.field_transformation(theta_new)
+            theta_ori = regularize(theta_ori)
             plaq = plaq_mean_from_field(theta_ori).item()
             theta_new, accepted, _ = self.metropolis_step(theta_new)
             
@@ -300,12 +289,13 @@ class HMC_U1_FT:
             theta, accepted, H_val = self.metropolis_step(theta)
             
             if i % store_interval == 0:  # Only store data at specific intervals
-                theta_ori = regularize(self.field_transformation(theta))
+                theta_ori = self.field_transformation(theta)
+                theta_ori = regularize(theta_ori)
                 plaq = plaq_mean_from_field(theta_ori).item()
                 plaq_ls.append(plaq)
                 hamiltonians.append(H_val)
                 topological_charges.append(topo_from_field(theta_ori).item())
-                
+
             if accepted:
                 acceptance_count += 1
 

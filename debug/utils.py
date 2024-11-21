@@ -209,9 +209,6 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
     plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
     plt.grid(linestyle=":")
 
-    print(">>> Mean plaq: ", np.mean(plaq_ls))
-    print(">>> Std plaq: ", np.std(plaq_ls))
-
     plt.subplot(222)
     plt.plot(hamiltonians)
     plt.title(f'Hamiltonian vs. Iteration {title_suffix}', fontsize=fontsize)
@@ -243,3 +240,6 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
 
     plt.tight_layout()
     plt.show()
+
+    print(">>> Mean plaq: ", np.mean(plaq_ls))
+    print(">>> Std of mean plaq: ", np.std(plaq_ls) / np.sqrt(len(plaq_ls)))

@@ -6,7 +6,8 @@ from utils import plaq_from_field, topo_from_field, plaq_mean_from_field, regula
 
 def action(theta, beta):
     theta_P = plaq_from_field(theta)
-    action_value = (-beta) * torch.sum(torch.cos(theta_P))
+    thetaP_wrapped = regularize(theta_P)
+    action_value = (-beta) * torch.sum(torch.cos(thetaP_wrapped))
     
     assert action_value.dim() == 0, "Action value is not a scalar."
     
