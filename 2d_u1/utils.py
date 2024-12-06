@@ -41,8 +41,7 @@ def plaq_mean_from_field(theta):
     """
     thetaP = plaq_from_field(theta)
     thetaP_wrapped = regularize(thetaP)
-    # plaq_mean = torch.mean(torch.cos(thetaP_wrapped))
-    plaq_mean = torch.mean(torch.cos(thetaP)) #todo
+    plaq_mean = torch.mean(torch.cos(thetaP_wrapped))
     return plaq_mean
 
 def regularize(theta):
