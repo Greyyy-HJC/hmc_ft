@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
+from utils import regularize
+from lametlat.utils.plot_settings import *
 
 # Simplified CNN Model based on the PDF description
 class RGTransformerCNN(nn.Module):
@@ -50,8 +52,10 @@ def train_model(model, train_loader, criterion, optimizer, scheduler, device, nu
             conf_rg_batch, conf_target_batch = conf_rg_batch.to(device), conf_target_batch.to(device)
             optimizer.zero_grad()
             with torch.cuda.amp.autocast():  # Mixed precision context
-                conf_ori_batch = model(conf_rg_batch)
-                loss = criterion(conf_ori_batch, conf_target_batch)
+                conf_irg_batch = model(conf_rg_batch)
+                # Regularize each batch
+                conf_irg_batch = regularize(conf_irg_batch)
+                loss = criterion(conf_irg_batch, conf_target_batch)
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -65,15 +69,15 @@ def train_model(model, train_loader, criterion, optimizer, scheduler, device, nu
         
         if avg_loss < best_loss:
             best_loss = avg_loss
-            torch.save(model.state_dict(), 'best_model.pt')
+            torch.save(model.state_dict(), 'models/best_model.pt')
     
-    plt.figure(figsize=(10, 6))
-    plt.plot(loss_history, 'b-')
-    plt.title('Training Loss Over Time')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.grid(True)
+    fig, ax = default_plot()
+    ax.plot(loss_history, 'b-')
+    ax.set_title('Training Loss Over Time', **fs_p)
+    ax.set_xlabel('Epoch', **fs_p)
+    ax.set_ylabel('Loss', **fs_p)
     plt.tight_layout()
+    plt.savefig('plots/cnn_loss.pdf', transparent=True)
     plt.show()
     
     return loss_history
@@ -121,14 +125,15 @@ if __name__ == "__main__":
     test_model(model, test_conf_rg, test_conf_target, criterion, device)
 
 # %%
-# Test with random matrix
-random_matrix = torch.randn(1, 2, 64, 64).to(device)
-target_config = test_conf_target[0:1].to(device)
+if __name__ == "__main__":
+    # Test with random matrix
+    random_matrix = torch.randn(1, 2, 64, 64).to(device)
+    target_config = test_conf_target[0:1].to(device)
 
-model.eval()
-with torch.no_grad():
-    random_loss = criterion(random_matrix, target_config).item()
-    print(f"\nLoss with random input: {random_loss:.6f}")
+    model.eval()
+    with torch.no_grad():
+        random_loss = criterion(random_matrix, target_config).item()
+        print(f"\nLoss with random input: {random_loss:.6f}")
 
 
 # %%
