@@ -2,7 +2,7 @@
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-from cnn_model import RGTransformerCNN
+from cnn_model import RGTransformerCNN, RGTransformerCNNAlt
 from utils import plaq_mean_from_field, plaq_mean_theory, topo_from_field
 from lametlat.utils.plot_settings import *
 
@@ -12,7 +12,8 @@ class RGTransformerEvaluator:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Initialize and load model
-        self.model = RGTransformerCNN().to(self.device)
+        # self.model = RGTransformerCNN().to(self.device) #todo
+        self.model = RGTransformerCNNAlt().to(self.device)
         self.model.load_state_dict(torch.load(model_path))
         self.model.eval()
 
@@ -40,10 +41,10 @@ class RGTransformerEvaluator:
         
         
         
-        # TODO: test use random irg configs
+        # TODO: test use random irg configs    
+        # rand = torch.randn(self.rg_tensor.shape).to(self.device) * 2 * torch.pi - torch.pi
         
-        # self.irg_tensor = torch.randn(self.irg_tensor.shape).to(self.device) * 2 * torch.pi - torch.pi
-        
+        # self.irg_tensor = self.predict(rand)
         
         
         
@@ -54,7 +55,7 @@ class RGTransformerEvaluator:
         
         return self.rg_tensor, self.ori_tensor, self.irg_tensor
 
-    def calculate_plaquette_means(self, beta_ori=5, beta_rg=0.6, beta_irg=60, lattice_size=32):
+    def calculate_plaquette_means(self, beta_ori=5, beta_rg=0.55, beta_irg=60, lattice_size=32):
         """Calculate and plot plaquette means"""
         # Calculate plaquette means
         ori_plaq_means = [plaq_mean_from_field(config).item() for config in self.ori_tensor]
@@ -152,7 +153,7 @@ ax.plot(irg_plaq_means, label='IRG')
 ax.set_ylabel('Plaquette Mean', **fs_p)
 ax.grid(True)
 ax.legend(loc="upper right", **fs_small_p)
-ax.set_ylim(0.992, 0.9945)
+ax.set_ylim(auto_ylim([irg_plaq_means], [np.zeros_like(irg_plaq_means)], y_range_ratio=2))
 plt.tight_layout()
 plt.show()
 

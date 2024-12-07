@@ -1,0 +1,4 @@
+<invoke name="codebase_search">
+<parameter name="query">loss topo topology constraint in training or loss calculation</parameter>
+<parameter name="explanation">Looking for how the topology constraint is currently implemented in the loss function</parameter>
+</invoke> 
