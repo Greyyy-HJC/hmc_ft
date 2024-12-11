@@ -203,7 +203,8 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
     plt.tick_params(direction="in", top="on", right="on", labelsize=fontsize-2)
     plt.grid(linestyle=":")
     plt.axhline(y=np.mean(hamiltonians), color='r', linestyle='--', label='Mean Hamiltonian')
-    plt.ylim(np.mean(hamiltonians) * 0.9, np.mean(hamiltonians) * 1.1)
+    # hamiltonians_filtered = hamiltonians[~np.isnan(hamiltonians) & ~np.isinf(hamiltonians)]
+    # plt.ylim(np.mean(hamiltonians_filtered) * 0.9, np.mean(hamiltonians_filtered) * 1.1)
     plt.legend(fontsize=fontsize-2, loc='upper right')
 
     plt.subplot(223)

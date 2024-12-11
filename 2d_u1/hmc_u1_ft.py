@@ -1,7 +1,6 @@
 # %%
 import torch
 from tqdm import tqdm
-import torch.linalg as linalg
 import torch.autograd.functional as F
 from utils import plaq_from_field, plaq_mean_from_field, regularize, topo_from_field
 

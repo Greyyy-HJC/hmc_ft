@@ -9,52 +9,78 @@ from utils import plaq_from_field
 
 class StableCNN(nn.Module):
     """Simple CNN model with GELU activation and tanh output scaling"""
-    def __init__(self, input_channels=20, hidden_channels=64):
+    def __init__(self, input_channels=12, hidden_channels=32):
         super().__init__()
         self.net = nn.Sequential(
             nn.Conv2d(input_channels, hidden_channels, 3, padding=1),
             nn.GELU(),
             nn.Conv2d(hidden_channels, hidden_channels, 3, padding=1),
             nn.GELU(),
-            nn.Conv2d(hidden_channels, 2, 3, padding=1)
+            nn.Conv2d(hidden_channels, 1, 3, padding=1)
         )
 
     def forward(self, x):
         return torch.pi * torch.tanh(self.net(x))
+    
+
+class StableMLP(nn.Module):
+    """Simple MLP model with GELU activation and tanh output scaling"""
+    def __init__(self, input_features=12, hidden_dim=64):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_features, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, x):
+        batch_size, _, _, L, _ = x.shape
+        result = torch.zeros((batch_size, 2, L, L), device=x.device)
+        
+        for mu in [0, 1]:
+            # Reshape input to (batch_size * L * L, input_features)
+            x_mu = x[:, :, mu].permute(0, 2, 3, 1).reshape(-1, 12)
+            # Apply MLP and reshape back
+            out = torch.pi * torch.tanh(self.net(x_mu))
+            result[:, mu] = out.reshape(batch_size, L, L)
+            
+        return result
+
 
 def get_plaq_features(plaqphase, device):
     """
-    Compute sin/cos features of plaquette phase angles and their neighbors.
-    Input: plaqphase with shape [batch_size, L, L]
-    Output: features with shape [batch_size, 20, L, L]
+    Vectorized computation of plaquette features
     """
     batch_size, L = plaqphase.shape[0], plaqphase.shape[-1]
-    features = torch.zeros((batch_size, 20, L, L), device=device)
+    features = torch.zeros((batch_size, 12, 2, L, L), device=device)
     
-    # Compute features for each direction
     for mu in [0, 1]:
-        # Define shifts for this direction
-        if mu == 0:
-            shifts = [(-1,0), (-1,-1), (1,0), (1,-1)]
-        else:
-            shifts = [(-1,1), (-1,-1), (0,1), (0,-1)]
-            
-        # Get neighbor contributions
-        angles = [torch.roll(plaqphase, shifts=s, dims=(1,2)) for s in shifts]
+        # pre-compute all block starting coordinates
+        block_x = (torch.arange(L, device=device) // 4) * 4
+        block_y = (torch.arange(L, device=device) // 4) * 4
         
-        # Add sum terms
-        if mu == 0:
-            angles.append(plaqphase + torch.roll(plaqphase, shifts=(0,-1), dims=(1,2)))
-        else:
-            angles.append(plaqphase + torch.roll(plaqphase, shifts=(-1,0), dims=(1,2)))
-            
-        # Compute sin/cos features
-        offset = mu * 10
-        for idx, angle in enumerate(angles):
-            features[:, offset + 2*idx] = torch.cos(angle)
-            features[:, offset + 2*idx + 1] = torch.sin(angle)
+        # create valid plaquette coordinates
+        for x in range(L):
+            bx = block_x[x]
+            for y in range(L):
+                by = block_y[y]
+                
+                # use the valid plaquette coordinates
+                plaq_idx = torch.tensor([
+                    (i, j) for i in range(bx, bx + 3)
+                    for j in range(by, by + 3)
+                    if not ((mu == 0 and i == x) or (mu == 1 and j == y))
+                ][:6], device=device)
+                
+                if len(plaq_idx) > 0:
+                    plaq = plaqphase[:, plaq_idx[:, 0], plaq_idx[:, 1]]
+                    features[:, ::2, mu, x, y] = torch.cos(plaq)
+                    features[:, 1::2, mu, x, y] = torch.sin(plaq)
     
     return features
+
 
 class FieldTransformation:
     """Neural network based field transformation"""
@@ -64,6 +90,7 @@ class FieldTransformation:
         self.epsilon = epsilon
         
         self.model = StableCNN().to(device)
+        # self.model = StableMLP().to(device)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=0.001, weight_decay=1e-4)
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, mode='min', factor=0.5, patience=5, verbose=True
@@ -81,8 +108,17 @@ class FieldTransformation:
         for i in range(batch_size):
             plaqphase[i] = plaq_from_field(theta[i])
         
+        # get features: [batch_size, 12, 2, L, L]
         features = get_plaq_features(plaqphase, self.device)
-        return self.model(features)
+        result = torch.zeros((batch_size, 2, self.L, self.L), device=self.device)
+        
+        # process each direction separately
+        for mu in [0, 1]:
+            # use features of corresponding direction, shape: [batch_size, 12, L, L]
+            x_mu = features[:, :, mu]
+            result[:, mu] = self.model(x_mu).squeeze(1)
+        
+        return result
     
     def forward(self, theta):
         """Transform theta_new to theta_ori"""
@@ -131,8 +167,7 @@ class FieldTransformation:
     
     def compute_force(self, theta, beta, transformed=False):
         """
-        Compute force (gradient of action)
-        Input: theta with shape [batch_size, 2, L, L] or [2, L, L]
+        Optimized force computation with batched operations
         """
         if len(theta.shape) == 3:
             theta = theta.unsqueeze(0)
@@ -252,5 +287,5 @@ class FieldTransformation:
         plt.ylabel('Loss')
         plt.legend()
         plt.grid(True)
-        plt.savefig('plots/cnn_loss.pdf', transparent=True)
+        plt.savefig('plots/cnn_block_loss.pdf', transparent=True)
         plt.show() 
