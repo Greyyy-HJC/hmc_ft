@@ -1,259 +1,256 @@
 import torch
 import torch.nn as nn
-from tqdm import tqdm
-import math
 import matplotlib.pyplot as plt
-import torch.linalg as linalg
 import torch.autograd.functional as F
+import numpy as np
+from tqdm import tqdm
 
-from utils import plaq_from_field, regularize
+from utils import plaq_from_field
 
 class StableCNN(nn.Module):
-    def __init__(self, input_channels=1, output_channels=1, hidden_channels=64, kernel_size=3):
-        super(StableCNN, self).__init__()
-        self.conv_layers = nn.Sequential(
-            nn.Conv2d(input_channels, hidden_channels, kernel_size, padding=1),
+    """Simple CNN model with GELU activation and tanh output scaling"""
+    def __init__(self, input_channels=20, hidden_channels=64):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(input_channels, hidden_channels, 3, padding=1),
             nn.GELU(),
-            nn.Conv2d(hidden_channels, hidden_channels, kernel_size, padding=1),
+            nn.Conv2d(hidden_channels, hidden_channels, 3, padding=1),
             nn.GELU(),
-            nn.Conv2d(hidden_channels, output_channels, kernel_size, padding=1)
+            nn.Conv2d(hidden_channels, 2, 3, padding=1)
         )
 
     def forward(self, x):
-        x = self.conv_layers(x)
-        # Scale output to [-pi, pi] range using tanh
-        x = torch.pi * torch.tanh(x)
-        return x
+        return torch.pi * torch.tanh(self.net(x))
 
+def get_plaq_features(plaqphase, device):
+    """
+    Compute sin/cos features of plaquette phase angles and their neighbors.
+    Input: plaqphase with shape [batch_size, L, L]
+    Output: features with shape [batch_size, 20, L, L]
+    """
+    batch_size, L = plaqphase.shape[0], plaqphase.shape[-1]
+    features = torch.zeros((batch_size, 20, L, L), device=device)
+    
+    # Compute features for each direction
+    for mu in [0, 1]:
+        # Define shifts for this direction
+        if mu == 0:
+            shifts = [(-1,0), (-1,-1), (1,0), (1,-1)]
+        else:
+            shifts = [(-1,1), (-1,-1), (0,1), (0,-1)]
+            
+        # Get neighbor contributions
+        angles = [torch.roll(plaqphase, shifts=s, dims=(1,2)) for s in shifts]
+        
+        # Add sum terms
+        if mu == 0:
+            angles.append(plaqphase + torch.roll(plaqphase, shifts=(0,-1), dims=(1,2)))
+        else:
+            angles.append(plaqphase + torch.roll(plaqphase, shifts=(-1,0), dims=(1,2)))
+            
+        # Compute sin/cos features
+        offset = mu * 10
+        for idx, angle in enumerate(angles):
+            features[:, offset + 2*idx] = torch.cos(angle)
+            features[:, offset + 2*idx + 1] = torch.sin(angle)
+    
+    return features
 
-def compute_neighbor_contributions(plaqphase, L, device):
-    neighbor_contributions = torch.zeros((2, 5, L, L), dtype=torch.float32, device=device)
-
-    # Use tensor slicing and rolling to compute neighbors
-    neighbor_contributions[0, 0] = torch.roll(plaqphase, shifts=(-1, 0), dims=(0, 1))  # (x-1, y)
-    neighbor_contributions[0, 1] = torch.roll(plaqphase, shifts=(-1, -1), dims=(0, 1))  # (x-1, y-1)
-    neighbor_contributions[0, 2] = torch.roll(plaqphase, shifts=(1, 0), dims=(0, 1))  # (x+1, y)
-    neighbor_contributions[0, 3] = torch.roll(plaqphase, shifts=(1, -1), dims=(0, 1))  # (x+1, y-1)
-    neighbor_contributions[0, 4] = plaqphase + torch.roll(plaqphase, shifts=(0, -1), dims=(0, 1))  # (x, y) + (x, y-1)
-
-    neighbor_contributions[1, 0] = torch.roll(plaqphase, shifts=(-1, 1), dims=(0, 1))  # (x-1, y+1)
-    neighbor_contributions[1, 1] = torch.roll(plaqphase, shifts=(-1, -1), dims=(0, 1))  # (x-1, y-1)
-    neighbor_contributions[1, 2] = torch.roll(plaqphase, shifts=(0, 1), dims=(0, 1))  # (x, y+1)
-    neighbor_contributions[1, 3] = torch.roll(plaqphase, shifts=(0, -1), dims=(0, 1))  # (x, y-1)
-    neighbor_contributions[1, 4] = plaqphase + torch.roll(plaqphase, shifts=(-1, 0), dims=(0, 1))  # (x, y) + (x-1, y)
-
-    angle_input = torch.zeros((2, 10, L, L), dtype=torch.float32, device=device)
-
-    angle_input[0, 0] = torch.cos(neighbor_contributions[0, 0])
-    angle_input[0, 1] = torch.sin(neighbor_contributions[0, 0])
-    angle_input[0, 2] = torch.cos(neighbor_contributions[0, 1])
-    angle_input[0, 3] = torch.sin(neighbor_contributions[0, 1])
-    angle_input[0, 4] = torch.cos(neighbor_contributions[0, 2])
-    angle_input[0, 5] = torch.sin(neighbor_contributions[0, 2])
-    angle_input[0, 6] = torch.cos(neighbor_contributions[0, 3])
-    angle_input[0, 7] = torch.sin(neighbor_contributions[0, 3])
-    angle_input[0, 8] = torch.cos(neighbor_contributions[0, 4])
-    angle_input[0, 9] = torch.sin(neighbor_contributions[0, 4])
-
-    angle_input[1, 0] = torch.cos(neighbor_contributions[1, 0])
-    angle_input[1, 1] = torch.sin(neighbor_contributions[1, 0])
-    angle_input[1, 2] = torch.cos(neighbor_contributions[1, 1])
-    angle_input[1, 3] = torch.sin(neighbor_contributions[1, 1])
-    angle_input[1, 4] = torch.cos(neighbor_contributions[1, 2])
-    angle_input[1, 5] = torch.sin(neighbor_contributions[1, 2])
-    angle_input[1, 6] = torch.cos(neighbor_contributions[1, 3])
-    angle_input[1, 7] = torch.sin(neighbor_contributions[1, 3])
-    angle_input[1, 8] = torch.cos(neighbor_contributions[1, 4])
-    angle_input[1, 9] = torch.sin(neighbor_contributions[1, 4])
-
-    return angle_input
-    # return neighbor_contributions
-
-
-class NNFieldTransformation:
-    def __init__(self, lattice_size, epsilon=0.01, jacobian_interval=20, device='cpu'):
-        self.lattice_size = lattice_size
+class FieldTransformation:
+    """Neural network based field transformation"""
+    def __init__(self, lattice_size, epsilon=0.1, device='cpu'):
+        self.L = lattice_size
         self.device = torch.device(device)
         self.epsilon = epsilon
-        self.jacobian_interval = jacobian_interval
-
-        # Initialize CNN model
-        self.model = StableCNN(input_channels=10)
-        self.model.to(self.device)
-
-    def __call__(self, theta_new):
-        L = self.lattice_size
-
-        plaqphase = plaq_from_field(theta_new)
-        plaqphase = regularize(plaqphase)
-
-        # Collect neighborhood features for CNN input
-        neighbor_contributions = compute_neighbor_contributions(plaqphase, L, self.device)
-
-        if torch.isnan(neighbor_contributions).any():
-            print("neighbor_contributions contains NaN values!")
-
-        # Pass neighbor contributions through CNN
-        K1 = torch.zeros((2, L, L), dtype=torch.float32, device=self.device)
-        for mu in range(2):
-            neighbor_input = neighbor_contributions[mu].unsqueeze(0)
-
-            K1[mu] = self.model(neighbor_input).squeeze()
-
-        if torch.isnan(K1).any():
-            print("K1 contains NaN values!")
-
-        # Apply the transformation
-        theta_trans = theta_new + K1 * self.epsilon
-        return theta_trans
-
-    
-    def field_transformation(self, theta_new):
-        """
-        Define a field transformation function. Field transformation transforms the new field back to the original field.
-        """
-        # return regularize( self(theta_new) )
-        return self(theta_new)
-    
-    def original_action(self, theta_ori, beta):
-        """
-        Compute the action without field transformation.
-        """
-        theta_P = plaq_from_field(theta_ori)
-        theta_wrapped = regularize(theta_P)
-        action_value = (-beta) * torch.sum(torch.cos(theta_wrapped))
         
-        # check if action_value is a scalar
-        assert action_value.dim() == 0, "Action value is not a scalar."
-
-        return action_value
-    
-    def compute_jacobian_log_det(self, theta_new):
-        """
-        Compute the log determinant of the Jacobian matrix of the transformation.
-
-        field_transformation(theta_new) = theta_ori
+        self.model = StableCNN().to(device)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=0.001, weight_decay=1e-4)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.5, patience=5, verbose=True
+        )
         
-        Parameters:
-        -----------
-        theta_new : torch.Tensor
-            The new field configuration after transformation.
-
-        Returns:
-        --------
-        torch.Tensor
-            The log determinant of the Jacobian matrix.
+    def compute_K1(self, theta):
         """
-        # Use cached Jacobian if available and not expired        
-        if self.step_count % self.jacobian_interval != 0:
-            return self.jacobian_cache
-
-        # Compute Jacobian using torch.autograd.functional.jacobian
-        jacobian = F.jacobian(self.field_transformation, theta_new)
-
-        # Reshape jacobian to 2D matrix
-        jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
-        log_det = torch.logdet(jacobian_2d)
+        Compute K1 term for field transformation
+        Input: theta with shape [batch_size, 2, L, L]
+        Output: K1 with shape [batch_size, 2, L, L]
+        """
+        batch_size = theta.shape[0]
+        plaqphase = torch.zeros((batch_size, self.L, self.L), device=self.device)
         
-        if torch.isnan(log_det) or torch.isinf(log_det):
-            print(">>> Warning: Invalid values detected of the log det Jacobian!")
-
-        # Cache the result
-        self.jacobian_cache = log_det
-
-        return log_det
-
+        for i in range(batch_size):
+            plaqphase[i] = plaq_from_field(theta[i])
+        
+        features = get_plaq_features(plaqphase, self.device)
+        return self.model(features)
     
-    def new_action(self, theta_new, beta):
-        theta_ori = self.field_transformation(theta_new)
-        original_action_val = self.original_action(theta_ori, beta)
-        jacobian_log_det = self.compute_jacobian_log_det(theta_new)
-
-        new_action_val = original_action_val - jacobian_log_det
-
-        assert (
-            new_action_val.dim() == 0
-        ), "Transformed action value is not a scalar."
-
-        return new_action_val
+    def forward(self, theta):
+        """Transform theta_new to theta_ori"""
+        if len(theta.shape) == 3:  # Add batch dimension if needed
+            theta = theta.unsqueeze(0)
+        return theta + self.epsilon * self.compute_K1(theta)
     
-    def original_force(self, theta, beta):
+    def inverse(self, theta):
+        """Transform theta_ori to theta_new"""
+        if len(theta.shape) == 3:  # Add batch dimension if needed
+            theta = theta.unsqueeze(0)
+        return theta - self.epsilon * self.compute_K1(theta)
+    
+    def field_transformation(self, theta):
         """
-        Compute the force (gradient of the action) using PyTorch operations.
+        Field transformation function for HMC.
+        Input: theta with shape [2, L, L]
+        Output: theta with shape [2, L, L]
         """
-        theta.requires_grad_(True)  # Ensure gradients are tracked
-        action = self.original_action(theta, beta)
-        force = torch.autograd.grad(action, theta, create_graph=True)[0]
-
-        if torch.isnan(force).any():
-            print("Original force contains NaN!")
-
-        return force
-
-    def new_force(self, theta_new, beta):
+        # Add batch dimension for single input
+        theta_batch = theta.unsqueeze(0)
+        
+        # Compute transformation
+        K1 = self.compute_K1(theta_batch)
+        theta_transformed = theta_batch + self.epsilon * K1
+        
+        # Remove batch dimension
+        return theta_transformed.squeeze(0)
+    
+    def compute_action(self, theta, beta):
         """
-        Compute the new force using PyTorch operations.
+        Compute action for given configuration
+        Input: theta with shape [batch_size, 2, L, L] or [2, L, L]
         """
-        theta_new.requires_grad_(True)
-        new_action_val = self.new_action(theta_new, beta)
-        force = torch.autograd.grad(new_action_val, theta_new, create_graph=True)[0]
-
-        if torch.isnan(force).any():
-            print("New force contains NaN!")
-
-        return force
+        if len(theta.shape) == 3:
+            theta = theta.unsqueeze(0)
+        
+        batch_size = theta.shape[0]
+        total_action = 0
+        
+        for i in range(batch_size):
+            plaq = plaq_from_field(theta[i])
+            total_action += torch.sum(torch.cos(plaq))
+        
+        return -beta * total_action / batch_size  # Average over batch
+    
+    def compute_force(self, theta, beta, transformed=False):
+        """
+        Compute force (gradient of action)
+        Input: theta with shape [batch_size, 2, L, L] or [2, L, L]
+        """
+        if len(theta.shape) == 3:
+            theta = theta.unsqueeze(0)
+        
+        batch_size = theta.shape[0]
+        theta.requires_grad_(True)
+        
+        if transformed:
+            theta_ori = self.forward(theta)
+            action = self.compute_action(theta_ori, beta)
             
-    def train(self, beta, n_epochs=100):
-        # optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=0.001, weight_decay=1e-4)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
-
-        loss_history = []  # To store loss values
-        self.step_count = 0  # Initialize step count
-
-        for epoch in tqdm(range(n_epochs), desc="Training Neural Network"):
-            # Initialize U with shape (2, L, L), this is new field configuration
-            theta_new = torch.empty((2, self.lattice_size, self.lattice_size), device=self.device).uniform_(-math.pi, math.pi)
-
-            # Compute forces (gradients of actions)
-            # force_original = self.original_force(theta_new, beta=2.5) # so that to make the new force smaller
-
-            #todo
-            theta_ori = self.field_transformation(theta_new)
-            theta_ori = regularize(theta_ori)
-            force_original = self.original_force(theta_ori, beta)
-
-            force_new = self.new_force(theta_new, beta)
-
-            # Compute the loss using combined norm
-            vol = self.lattice_size ** 2
-            loss = torch.norm(force_new - force_original, p=2) #/ (vol ** (1/2)) + torch.norm(force_new - force_original, p=4) / (vol ** (1/4))
-
-            if torch.isnan(loss).any():
-                print("Loss is NaN!")
-
-            # Log the loss
-            loss_history.append(loss.item())
-
-            # Backpropagation and optimization
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            scheduler.step(loss.item()) 
-
-            # Check for NaN in model parameters
-            for name, param in self.model.named_parameters():
-                if torch.isnan(param).any():
-                    print(f"Epoch {epoch}, {name} contains NaN!")
-
-            self.step_count += 1
-
-        # Plot the loss history
-        plt.figure(figsize=(6, 3.5))
-        plt.plot(loss_history)
-        plt.xlabel('Iteration')
-        plt.ylabel('Loss')
-        plt.title('Training Loss Over Time')
-        plt.tight_layout()
-        plt.show()
+            # Compute Jacobian for each sample in the batch
+            jac_logdet = 0
+            for i in range(batch_size):
+                single_theta = theta[i]
+                jac = F.jacobian(self.forward, single_theta.unsqueeze(0)).squeeze(0)
+                jac_2d = jac.reshape(single_theta.numel(), single_theta.numel())
+                jac_logdet += torch.logdet(jac_2d)
+            jac_logdet = jac_logdet / batch_size  # Average over batch
+            
+            total_action = action - jac_logdet
+        else:
+            total_action = self.compute_action(theta, beta)
+            
+        force = torch.autograd.grad(total_action, theta, create_graph=True)[0]
+        return force.squeeze(0) if len(force.shape) == 4 and force.shape[0] == 1 else force
     
+    def train_step(self, theta_ori, beta):
+        """Single training step"""
+        if len(theta_ori.shape) == 3:
+            theta_ori = theta_ori.unsqueeze(0)
+        
+        theta_new = self.inverse(theta_ori)
+        force_ori = self.compute_force(theta_new, beta=2.5)
+        force_new = self.compute_force(theta_new, beta, transformed=True)
+        
+        vol = self.L * self.L
+        loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + \
+               torch.norm(force_new - force_ori, p=4) / (vol**(1/4))
+        
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        
+        return loss.item()
+    
+    def train(self, train_data, test_data, beta, n_epochs=100, batch_size=1):
+        """Train the model"""
+        train_losses = []
+        test_losses = []
+        
+        for epoch in tqdm(range(n_epochs), desc="Training epochs"):
+            # Training
+            self.model.train()
+            indices = torch.randperm(len(train_data))
+            epoch_losses = []
+            
+            # Training loop with progress bar
+            train_iter = tqdm(
+                range(0, len(train_data), batch_size),
+                desc=f"Epoch {epoch+1}/{n_epochs}",
+                leave=False
+            )
+            for i in train_iter:
+                batch = train_data[indices[i:i+batch_size]]
+                loss = self.train_step(batch, beta)
+                epoch_losses.append(loss)
+                
+                # Update progress bar description with current loss
+                train_iter.set_postfix({"Loss": f"{loss:.6f}"})
+            
+            train_loss = np.mean(epoch_losses)
+            
+            # Evaluation
+            self.model.eval()
+            test_losses_epoch = []
+            
+            # Evaluate without computing gradients
+            test_iter = tqdm(
+                torch.split(test_data, batch_size),
+                desc="Evaluating",
+                leave=False
+            )
+            for batch in test_iter:
+                # Forward pass only for evaluation
+                if len(batch.shape) == 3:
+                    batch = batch.unsqueeze(0)
+                    
+                theta_new = self.inverse(batch)
+                force_ori = self.compute_force(theta_new, beta=2.5)
+                force_new = self.compute_force(theta_new, beta, transformed=True)
+                
+                vol = self.L * self.L
+                loss = (torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + 
+                       torch.norm(force_new - force_ori, p=4) / (vol**(1/4))).item()
+                
+                test_losses_epoch.append(loss)
+                test_iter.set_postfix({"Loss": f"{loss:.6f}"})
+                
+            test_loss = np.mean(test_losses_epoch)
+            
+            train_losses.append(train_loss)
+            test_losses.append(test_loss)
+            
+            # Print epoch summary
+            print(f"Epoch {epoch+1}/{n_epochs} - "
+                  f"Train Loss: {train_loss:.6f} - "
+                  f"Test Loss: {test_loss:.6f}")
+            
+            self.scheduler.step(test_loss)
+        
+        # Plot training history
+        plt.figure(figsize=(10, 5))
+        plt.plot(train_losses, label='Train')
+        plt.plot(test_losses, label='Test')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig('plots/loss.pdf', transparent=True)
+        plt.show() 

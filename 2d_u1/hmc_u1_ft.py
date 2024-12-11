@@ -81,8 +81,7 @@ class HMC_U1_FT:
             The action value.
         """
         theta_P = plaq_from_field(theta)
-        thetaP_wrapped = regularize(theta_P)
-        action_value = (-self.beta) * torch.sum(torch.cos(thetaP_wrapped))
+        action_value = (-self.beta) * torch.sum(torch.cos(theta_P))
         
         # Check if action_value is a scalar
         assert action_value.dim() == 0, "Action value is not a scalar."
@@ -115,8 +114,6 @@ class HMC_U1_FT:
         # Reshape jacobian to 2D matrix
         jacobian_2d = jacobian.reshape(theta_new.numel(), theta_new.numel())
         log_det = torch.logdet(jacobian_2d)
-        # s = linalg.svdvals(jacobian_2d) # todo
-        # log_det = torch.sum(torch.log(s))
         
         if torch.isnan(log_det) or torch.isinf(log_det):
             print(">>> Warning: Invalid values detected of the log det Jacobian!")

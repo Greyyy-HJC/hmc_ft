@@ -125,6 +125,7 @@ class HMC_U1:
         store_interval : int
             Store results every store_interval iterations to save memory
         """
+        theta_ls = []
         plaq_ls = []
         hamiltonians = []
         acceptance_count = 0
@@ -134,6 +135,7 @@ class HMC_U1:
             theta, accepted, H_val = self.metropolis_step(theta)
             
             if i % store_interval == 0:  # only store data at specific intervals
+                theta_ls.append(theta)
                 plaq = plaq_mean_from_field(theta).item()
                 plaq_ls.append(plaq)
                 hamiltonians.append(H_val)
@@ -144,7 +146,7 @@ class HMC_U1:
 
         acceptance_rate = acceptance_count / n_iterations
         return (
-            theta,
+            theta_ls,
             plaq_ls,
             acceptance_rate,
             topological_charges,
