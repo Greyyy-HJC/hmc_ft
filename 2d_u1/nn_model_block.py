@@ -12,14 +12,16 @@ class StableCNN(nn.Module):
     def __init__(self, input_channels=12, hidden_channels=32):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(input_channels, hidden_channels, 3, padding=1),
+            nn.Conv2d(input_channels*2, hidden_channels, 3, padding=1),
             nn.GELU(),
             nn.Conv2d(hidden_channels, hidden_channels, 3, padding=1),
             nn.GELU(),
-            nn.Conv2d(hidden_channels, 1, 3, padding=1)
+            nn.Conv2d(hidden_channels, 2, 3, padding=1)
         )
 
     def forward(self, x):
+        batch_size, _, _, L, _ = x.shape
+        x = x.permute(0, 2, 1, 3, 4).reshape(batch_size, -1, L, L)
         return torch.pi * torch.tanh(self.net(x))
     
 
@@ -36,22 +38,24 @@ class StableMLP(nn.Module):
         )
 
     def forward(self, x):
+        # x shape: [batch_size, 12, 2, L, L]
         batch_size, _, _, L, _ = x.shape
-        result = torch.zeros((batch_size, 2, L, L), device=x.device)
         
-        for mu in [0, 1]:
-            # Reshape input to (batch_size * L * L, input_features)
-            x_mu = x[:, :, mu].permute(0, 2, 3, 1).reshape(-1, 12)
-            # Apply MLP and reshape back
-            out = torch.pi * torch.tanh(self.net(x_mu))
-            result[:, mu] = out.reshape(batch_size, L, L)
-            
-        return result
+        # Reshape input to (batch_size * 2 * L * L, input_features)
+        x = x.permute(0, 2, 3, 4, 1).reshape(-1, 12)
+        
+        # Apply MLP
+        out = torch.pi * torch.tanh(self.net(x))
+        
+        # Reshape back to (batch_size, 2, L, L)
+        return out.reshape(batch_size, 2, L, L)
 
 
 def get_plaq_features(plaqphase, device):
     """
     Vectorized computation of plaquette features
+    
+    #TODO: optimize it, do not use loop
     """
     batch_size, L = plaqphase.shape[0], plaqphase.shape[-1]
     features = torch.zeros((batch_size, 12, 2, L, L), device=device)
@@ -110,15 +114,9 @@ class FieldTransformation:
         
         # get features: [batch_size, 12, 2, L, L]
         features = get_plaq_features(plaqphase, self.device)
-        result = torch.zeros((batch_size, 2, self.L, self.L), device=self.device)
         
-        # process each direction separately
-        for mu in [0, 1]:
-            # use features of corresponding direction, shape: [batch_size, 12, L, L]
-            x_mu = features[:, :, mu]
-            result[:, mu] = self.model(x_mu).squeeze(1)
-        
-        return result
+        # Process both directions at once
+        return self.model(features)
     
     def forward(self, theta):
         """Transform theta_new to theta_ori"""
