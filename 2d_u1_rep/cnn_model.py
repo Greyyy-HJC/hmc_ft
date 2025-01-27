@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from utils import get_musk, plaq_from_field_batch
+from utils import get_musk, plaq_from_field_batch, plaq_mean_from_field
     
 class SimpleCNN(nn.Module):
     """Simple CNN model with GELU activation"""
@@ -24,7 +24,8 @@ class SimpleCNN(nn.Module):
         # input shape: [batch_size, 2, L, L]
         x = self.conv(x)
         x = self.activation(x)
-        x = torch.arctan(x) / torch.pi * 2 # range [-1, 1]
+        # x = torch.arctan(x) / torch.pi * 2 # range [-1, 1]
+        x = torch.arctan(x) / torch.pi * 2 / 4 # range [-1/8, 1/8]
         # output shape: [batch_size, 2, L, L]
         return x 
 
@@ -54,7 +55,7 @@ class FieldTransformation:
         # Compute plaquettes for all batches at once
         plaq = plaq_from_field_batch(theta)  # [batch_size, L, L]
         
-        for index in range(1):
+        for index in range(1): # there are 8 sub-lattices #todo FT one sub-lattice first
             field_musk, plaq_musk = get_musk(index, batch_size, self.L)
             field_musk = field_musk.to(self.device)
             plaq_musk = plaq_musk.to(self.device)
@@ -92,11 +93,22 @@ class FieldTransformation:
         Output: theta with shape [batch_size, 2, L, L]
         """
 
-        plaq = plaq_from_field_batch(theta)
-        plaq_stack = torch.stack([plaq, plaq], dim=1)  # [batch_size, 2, L, L]
-        K0 = self.compute_K0(theta)
+        def ft_phase(theta):
+            plaq = plaq_from_field_batch(theta)
+            plaq_stack = torch.stack([plaq, plaq], dim=1)  # [batch_size, 2, L, L]
+            K0 = self.compute_K0(theta)
+            return K0 * plaq_stack
         
-        return theta - K0 * plaq_stack
+        inv_phase_1 = - ft_phase(theta)
+        theta_1 = theta + inv_phase_1
+        
+        inv_phase_2 = - ft_phase(theta_1)
+        theta_2 = theta + inv_phase_2
+        
+        inv_phase_3 = - ft_phase(theta_2)
+        theta_3 = theta + inv_phase_3
+        
+        return theta_3
 
     def field_transformation(self, theta):
         """
@@ -120,7 +132,6 @@ class FieldTransformation:
         """
         batch_size = theta.shape[0]
         K0 = self.compute_K0(theta)
-        # jac_det = torch.prod(K0 + 1, dim=(1, 2, 3))
         # Chain the product operations over multiple dimensions
         jac_det = (K0 + 1).prod(dim=1).prod(dim=1).prod(dim=1)
         
@@ -142,8 +153,6 @@ class FieldTransformation:
         Compute force (gradient of action)
         Input: theta with shape [batch_size, 2, L, L]
         """
-        theta.requires_grad_(True)
-        
         if transformed:
             theta_ori = self.forward(theta)
             action = self.compute_action(theta_ori, beta)
@@ -155,80 +164,90 @@ class FieldTransformation:
             
         force = torch.autograd.grad(total_action, theta, create_graph=True)[0]
         
-        return force.squeeze(0) 
-    
-    
+        return force.squeeze(0)
+
     def train_step(self, theta_ori, beta):
+        """Single training step
+        Args:
+            theta_ori (torch.Tensor): Original field configuration
+            beta (float): Coupling constant
+        Returns:
+            float: Loss value
+        """
+        theta_ori = theta_ori.to(self.device)
+        
+        with torch.autograd.set_grad_enabled(True):
+            theta_new = self.inverse(theta_ori)
+            force_ori = self.compute_force(theta_new, beta=2.5)
+            force_new = self.compute_force(theta_new, beta, transformed=True)
+            
+            vol = self.L * self.L
+            loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2))
+            
+            self.optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            self.optimizer.step()
+            
+        return loss.item()
+
+    def evaluate_step(self, theta_ori, beta):
+        """Single evaluation step
+        Args:
+            theta_ori (torch.Tensor): Original field configuration
+            beta (float): Coupling constant
+        Returns:
+            float: Loss value
+        """
+        theta_ori = theta_ori.to(self.device)
+        
+        if len(theta_ori.shape) == 3:
+            theta_ori = theta_ori.unsqueeze(0)
+            
         theta_new = self.inverse(theta_ori)
         force_ori = self.compute_force(theta_new, beta=2.5)
         force_new = self.compute_force(theta_new, beta, transformed=True)
         
         vol = self.L * self.L
-        loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + \
-               torch.norm(force_new - force_ori, p=4) / (vol**(1/4))
-        
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-        
+        loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2))
+            
         return loss.item()
-    
-    def train(self, train_data, test_data, beta, n_epochs=100, batch_size=1):
-        """Train the model"""
+
+    def train(self, train_data, test_data, beta, n_epochs=100, batch_size=1, patience=10):
+        """Train the model with early stopping"""
         train_losses = []
         test_losses = []
+        best_loss = float('inf')
+        patience_counter = 0
+        
+        train_loader = torch.utils.data.DataLoader(
+            train_data, batch_size=batch_size, shuffle=True
+        )
+        test_loader = torch.utils.data.DataLoader(
+            test_data, batch_size=batch_size
+        )
         
         for epoch in tqdm(range(n_epochs), desc="Training epochs"):
-            # Training
+            # Training phase
             self.model.train()
-            indices = torch.randperm(len(train_data))
             epoch_losses = []
             
-            # Training loop with progress bar
-            train_iter = tqdm(
-                range(0, len(train_data), batch_size),
-                desc=f"Epoch {epoch+1}/{n_epochs}",
-                leave=False
-            )
-            for i in train_iter:
-                batch = train_data[indices[i:i+batch_size]]
+            for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{n_epochs}", leave=False):
                 loss = self.train_step(batch, beta)
                 epoch_losses.append(loss)
                 
-                # Update progress bar description with current loss
-                train_iter.set_postfix({"Loss": f"{loss:.6f}"})
-            
             train_loss = np.mean(epoch_losses)
+            train_losses.append(train_loss)
             
-            # Evaluation
+            # Evaluation phase
             self.model.eval()
             test_losses_epoch = []
             
-            # Evaluate without computing gradients
-            test_iter = tqdm(
-                torch.split(test_data, batch_size),
-                desc="Evaluating",
-                leave=False
-            )
-            for batch in test_iter:
-                # Forward pass only for evaluation
-                if len(batch.shape) == 3:
-                    batch = batch.unsqueeze(0)
-                    
-                theta_new = self.inverse(batch)
-                force_ori = self.compute_force(theta_new, beta=2.5)
-                force_new = self.compute_force(theta_new, beta, transformed=True)
-                
-                vol = self.L * self.L
-                loss = (torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + 
-                       torch.norm(force_new - force_ori, p=4) / (vol**(1/4))).item()
-                
+            for batch in tqdm(test_loader, desc="Evaluating", leave=False):
+                loss = self.evaluate_step(batch, beta)
                 test_losses_epoch.append(loss)
-                test_iter.set_postfix({"Loss": f"{loss:.6f}"})
                 
             test_loss = np.mean(test_losses_epoch)
-            
-            train_losses.append(train_loss)
             test_losses.append(test_loss)
             
             # Print epoch summary
@@ -236,9 +255,33 @@ class FieldTransformation:
                   f"Train Loss: {train_loss:.6f} - "
                   f"Test Loss: {test_loss:.6f}")
             
+            # Early stopping and model saving
+            if test_loss < best_loss:
+                best_loss = test_loss
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'loss': best_loss,
+                }, 'models/best_model.pt')
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                
+            if patience_counter >= patience:
+                print(f"Early stopping triggered after {epoch + 1} epochs")
+                break
+            
             self.scheduler.step(test_loss)
         
         # Plot training history
+        self._plot_training_history(train_losses, test_losses)
+        
+        # Load best model
+        self._load_best_model()
+
+    def _plot_training_history(self, train_losses, test_losses):
+        """Plot and save training history"""
         plt.figure(figsize=(10, 5))
         plt.plot(train_losses, label='Train')
         plt.plot(test_losses, label='Test')
@@ -247,4 +290,10 @@ class FieldTransformation:
         plt.legend()
         plt.grid(True)
         plt.savefig('plots/cnn_loss.pdf', transparent=True)
-        plt.show() 
+        plt.show()
+
+    def _load_best_model(self):
+        """Load the best model from checkpoint"""
+        checkpoint = torch.load('models/best_model.pt')
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        print(f"Loaded best model from epoch {checkpoint['epoch']} with loss {checkpoint['loss']:.6f}") 

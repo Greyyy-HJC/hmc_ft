@@ -104,6 +104,7 @@ class HMC_U1_FT:
         original_action_val = self.original_action(theta_ori)
 
         jacobian_log_det = self.compute_jac_logdet(theta_new.unsqueeze(0)) # [batch_size, 2, L, L]
+        jacobian_log_det = jacobian_log_det.squeeze(0)
 
         new_action_val = original_action_val - jacobian_log_det
 
