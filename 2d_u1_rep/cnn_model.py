@@ -24,8 +24,8 @@ class SimpleCNN(nn.Module):
         # input shape: [batch_size, 2, L, L]
         x = self.conv(x)
         x = self.activation(x)
-        # x = torch.arctan(x) / torch.pi * 2 # range [-1, 1]
-        x = torch.arctan(x) / torch.pi * 2 / 4 # range [-1/8, 1/8]
+        x = torch.arctan(x) / torch.pi * 2 # range [-1, 1]
+        # x = torch.arctan(x) / torch.pi * 2 / 8 # range [-1/8, 1/8]
         # output shape: [batch_size, 2, L, L]
         return x 
 
@@ -55,7 +55,7 @@ class FieldTransformation:
         # Compute plaquettes for all batches at once
         plaq = plaq_from_field_batch(theta)  # [batch_size, L, L]
         
-        for index in range(1): # there are 8 sub-lattices #todo FT one sub-lattice first
+        for index in range(1,2): # there are 8 sub-lattices #todo FT one sub-lattice first
             field_musk, plaq_musk = get_musk(index, batch_size, self.L)
             field_musk = field_musk.to(self.device)
             plaq_musk = plaq_musk.to(self.device)
@@ -92,23 +92,30 @@ class FieldTransformation:
         Input: theta with shape [batch_size, 2, L, L]
         Output: theta with shape [batch_size, 2, L, L]
         """
-
         def ft_phase(theta):
             plaq = plaq_from_field_batch(theta)
-            plaq_stack = torch.stack([plaq, plaq], dim=1)  # [batch_size, 2, L, L]
+            plaq_stack = torch.stack([plaq, plaq], dim=1)
             K0 = self.compute_K0(theta)
             return K0 * plaq_stack
+
+        theta_curr = theta
+        max_iter = 100
+        tol = 1e-6
         
-        inv_phase_1 = - ft_phase(theta)
-        theta_1 = theta + inv_phase_1
-        
-        inv_phase_2 = - ft_phase(theta_1)
-        theta_2 = theta + inv_phase_2
-        
-        inv_phase_3 = - ft_phase(theta_2)
-        theta_3 = theta + inv_phase_3
-        
-        return theta_3
+        for i in range(max_iter):
+            inv_phase = -ft_phase(theta_curr)
+            theta_next = theta + inv_phase
+            
+            # calculate relative error
+            diff = torch.norm(theta_next - theta_curr) / torch.norm(theta_curr)
+            
+            if diff < tol:
+                return theta_next
+                    
+            theta_curr = theta_next
+            
+        print(f"Warning: Inverse iteration did not converge, final diff = {diff:.2e}")
+        return theta_curr
 
     def field_transformation(self, theta):
         """
@@ -132,10 +139,9 @@ class FieldTransformation:
         """
         batch_size = theta.shape[0]
         K0 = self.compute_K0(theta)
-        # Chain the product operations over multiple dimensions
-        jac_det = (K0 + 1).prod(dim=1).prod(dim=1).prod(dim=1)
-        
-        return torch.sum(torch.log(jac_det)) / batch_size
+        log_det = torch.log(K0 + 1).sum(dim=1).sum(dim=1).sum(dim=1)
+    
+        return log_det.sum() / batch_size
     
     def compute_action(self, theta, beta):
         """
@@ -201,9 +207,6 @@ class FieldTransformation:
         """
         theta_ori = theta_ori.to(self.device)
         
-        if len(theta_ori.shape) == 3:
-            theta_ori = theta_ori.unsqueeze(0)
-            
         theta_new = self.inverse(theta_ori)
         force_ori = self.compute_force(theta_new, beta=2.5)
         force_new = self.compute_force(theta_new, beta, transformed=True)
