@@ -5,7 +5,50 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from utils import get_musk, plaq_from_field_batch, plaq_mean_from_field
+from utils import plaq_from_field_batch
+
+def get_mask(index, batch_size, L):
+    '''
+    Get mask indices for a configuration with shape [batch_size, 2, L, L]
+    Get mask indices for plaquette phase angles with shape [batch_size, L, L]
+    '''
+    
+    field_mask = torch.zeros((batch_size, 2, L, L), dtype=torch.bool)
+    plaq_mask = torch.zeros((batch_size, L, L), dtype=torch.bool)
+    
+    if index == 0:
+        field_mask[:, 0, 0::2, 0::2] = True
+        plaq_mask[:, 1::2, :] = True
+        
+    elif index == 1:
+        field_mask[:, 0, 0::2, 1::2] = True
+        plaq_mask[:, 1::2, :] = True
+        
+    elif index == 2:
+        field_mask[:, 0, 1::2, 0::2] = True
+        plaq_mask[:, 0::2, :] = True
+
+    elif index == 3:
+        field_mask[:, 0, 1::2, 1::2] = True
+        plaq_mask[:, 0::2, :] = True
+        
+    elif index == 4:
+        field_mask[:, 1, 0::2, 0::2] = True
+        plaq_mask[:, :, 1::2] = True
+        
+    elif index == 5:
+        field_mask[:, 1, 0::2, 1::2] = True
+        plaq_mask[:, :, 0::2] = True
+        
+    elif index == 6:
+        field_mask[:, 1, 1::2, 0::2] = True
+        plaq_mask[:, :, 1::2] = True
+
+    elif index == 7:
+        field_mask[:, 1, 1::2, 1::2] = True
+        plaq_mask[:, :, 0::2] = True
+
+    return field_mask, plaq_mask
     
 class SimpleCNN(nn.Module):
     """Simple CNN model with GELU activation"""
@@ -55,13 +98,13 @@ class FieldTransformation:
         # Compute plaquettes for all batches at once
         plaq = plaq_from_field_batch(theta)  # [batch_size, L, L]
         
-        for index in range(1,2): # there are 8 sub-lattices #todo FT one sub-lattice first
-            field_musk, plaq_musk = get_musk(index, batch_size, self.L)
-            field_musk = field_musk.to(self.device)
-            plaq_musk = plaq_musk.to(self.device)
+        for index in range(1): # there are 8 sub-lattices #todo FT one sub-lattice first
+            field_mask, plaq_mask = get_mask(index, batch_size, self.L)
+            field_mask = field_mask.to(self.device)
+            plaq_mask = plaq_mask.to(self.device)
             
             # Apply mask and compute features for all batches at once
-            plaq_masked = plaq * plaq_musk  # [batch_size, L, L]
+            plaq_masked = plaq * plaq_mask  # [batch_size, L, L]
             
             # Add channel dimension before concatenation
             sin_feature = torch.sin(plaq_masked) 
@@ -69,7 +112,7 @@ class FieldTransformation:
             features = torch.stack([sin_feature, cos_feature], dim=1)  # [batch_size, 2, L, L]
             
             # Forward pass and accumulate result
-            K0 += self.model(features) * field_musk
+            K0 += self.model(features) * field_mask
                 
         return K0
             
@@ -81,7 +124,7 @@ class FieldTransformation:
         """
 
         plaq = plaq_from_field_batch(theta)
-        plaq_stack = torch.stack([plaq, plaq], dim=1)  # [batch_size, 2, L, L]
+        plaq_stack = torch.stack([plaq, -plaq], dim=1)  # [batch_size, 2, L, L] 
         K0 = self.compute_K0(theta)
         
         return theta + K0 * plaq_stack
@@ -94,7 +137,7 @@ class FieldTransformation:
         """
         def ft_phase(theta):
             plaq = plaq_from_field_batch(theta)
-            plaq_stack = torch.stack([plaq, plaq], dim=1)
+            plaq_stack = torch.stack([plaq, -plaq], dim=1)
             K0 = self.compute_K0(theta)
             return K0 * plaq_stack
 

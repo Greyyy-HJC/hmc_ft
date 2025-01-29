@@ -5,49 +5,6 @@ import math
 from scipy.integrate import quad
 from scipy.special import i0, i1
 
-def get_musk(index, batch_size, L):
-    '''
-    Get musk indices for a configuration with shape [batch_size, 2, L, L]
-    Get musk indices for plaquette phase angles with shape [batch_size, L, L]
-    '''
-    
-    field_musk = torch.zeros((batch_size, 2, L, L), dtype=torch.bool)
-    plaq_musk = torch.zeros((batch_size, L, L), dtype=torch.bool)
-    
-    if index == 0:
-        field_musk[:, 0, 0::2, 0::2] = True
-        plaq_musk[:, 1::2, :] = True
-        
-    elif index == 1:
-        field_musk[:, 0, 0::2, 1::2] = True
-        plaq_musk[:, 1::2, :] = True
-        
-    elif index == 2:
-        field_musk[:, 0, 1::2, 0::2] = True
-        plaq_musk[:, 0::2, :] = True
-
-    elif index == 3:
-        field_musk[:, 0, 1::2, 1::2] = True
-        plaq_musk[:, 0::2, :] = True
-        
-    elif index == 4:
-        field_musk[:, 1, 0::2, 0::2] = True
-        plaq_musk[:, :, 1::2] = True
-        
-    elif index == 5:
-        field_musk[:, 1, 0::2, 1::2] = True
-        plaq_musk[:, :, 0::2] = True
-        
-    elif index == 6:
-        field_musk[:, 1, 1::2, 0::2] = True
-        plaq_musk[:, :, 1::2] = True
-
-    elif index == 7:
-        field_musk[:, 1, 1::2, 1::2] = True
-        plaq_musk[:, :, 0::2] = True
-
-    return field_musk, plaq_musk
-
 def plaq_from_field_batch(theta):
     """
     Calculate the plaquette value for a batch of field configurations.
