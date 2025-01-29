@@ -68,11 +68,9 @@ class SimpleCNN(nn.Module):
         x = self.conv(x)
         x = self.activation(x)
         x = torch.arctan(x) / torch.pi * 2 # range [-1, 1]
-        # x = torch.arctan(x) / torch.pi * 2 / 8 # range [-1/8, 1/8]
         # output shape: [batch_size, 2, L, L]
         return x 
 
-    
 
 class FieldTransformation:
     """Neural network based field transformation"""
@@ -86,7 +84,7 @@ class FieldTransformation:
             self.optimizer, mode='min', factor=0.5, patience=5, verbose=True
         )
         
-    def compute_K0(self, theta):
+    def compute_K0(self, theta, index):
         """
         Compute K0 for given theta
         Input: theta with shape [batch_size, 2, L, L]
@@ -98,23 +96,34 @@ class FieldTransformation:
         # Compute plaquettes for all batches at once
         plaq = plaq_from_field_batch(theta)  # [batch_size, L, L]
         
-        for index in range(1): # there are 8 sub-lattices #todo FT one sub-lattice first
-            field_mask, plaq_mask = get_mask(index, batch_size, self.L)
-            field_mask = field_mask.to(self.device)
-            plaq_mask = plaq_mask.to(self.device)
-            
-            # Apply mask and compute features for all batches at once
-            plaq_masked = plaq * plaq_mask  # [batch_size, L, L]
-            
-            # Add channel dimension before concatenation
-            sin_feature = torch.sin(plaq_masked) 
-            cos_feature = torch.cos(plaq_masked) 
-            features = torch.stack([sin_feature, cos_feature], dim=1)  # [batch_size, 2, L, L]
-            
-            # Forward pass and accumulate result
-            K0 += self.model(features) * field_mask
+        field_mask, plaq_mask = get_mask(index, batch_size, self.L)
+        field_mask = field_mask.to(self.device)
+        plaq_mask = plaq_mask.to(self.device)
+        
+        # Apply mask and compute features for all batches at once
+        plaq_masked = plaq * plaq_mask  # [batch_size, L, L]
+        
+        # Add channel dimension before concatenation
+        sin_feature = torch.sin(plaq_masked) 
+        cos_feature = torch.cos(plaq_masked) 
+        features = torch.stack([sin_feature, cos_feature], dim=1)  # [batch_size, 2, L, L]
+        
+        # Forward pass and accumulate result
+        K0 += self.model(features) * field_mask
                 
         return K0
+    
+    def ft_phase(self, theta):
+        """
+        Compute the phase factor for field transformation
+        Input: theta with shape [batch_size, 2, L, L]
+        Output: phase with shape [batch_size, 2, L, L]
+        """
+        plaq = plaq_from_field_batch(theta)
+        sin_plaq = torch.sin(plaq)
+        sin_plaq_stack = torch.stack([sin_plaq, -sin_plaq], dim=1)  # [batch_size, 2, L, L] 
+        K0 = self.compute_K0(theta, index=4)
+        return K0 * sin_plaq_stack
             
     def forward(self, theta):
         """
@@ -122,12 +131,8 @@ class FieldTransformation:
         Input: theta with shape [batch_size, 2, L, L]
         Output: theta with shape [batch_size, 2, L, L]
         """
-
-        plaq = plaq_from_field_batch(theta)
-        plaq_stack = torch.stack([plaq, -plaq], dim=1)  # [batch_size, 2, L, L] 
-        K0 = self.compute_K0(theta)
         
-        return theta + K0 * plaq_stack
+        return theta - self.ft_phase(theta)
 
     def inverse(self, theta):
         """
@@ -135,19 +140,14 @@ class FieldTransformation:
         Input: theta with shape [batch_size, 2, L, L]
         Output: theta with shape [batch_size, 2, L, L]
         """
-        def ft_phase(theta):
-            plaq = plaq_from_field_batch(theta)
-            plaq_stack = torch.stack([plaq, -plaq], dim=1)
-            K0 = self.compute_K0(theta)
-            return K0 * plaq_stack
-
+        
         theta_curr = theta
         max_iter = 100
         tol = 1e-6
         
         for i in range(max_iter):
-            inv_phase = -ft_phase(theta_curr)
-            theta_next = theta + inv_phase
+            inv_phase = - self.ft_phase(theta_curr)
+            theta_next = theta - inv_phase
             
             # calculate relative error
             diff = torch.norm(theta_next - theta_curr) / torch.norm(theta_curr)
@@ -179,41 +179,49 @@ class FieldTransformation:
         Compute the log determinant of the Jacobian of the field transformation.
         
         theta: [batch_size, 2, L, L]
+        Output: log_det with shape [batch_size]
         """
-        batch_size = theta.shape[0]
-        K0 = self.compute_K0(theta)
-        log_det = torch.log(K0 + 1).sum(dim=1).sum(dim=1).sum(dim=1)
-    
-        return log_det.sum() / batch_size
+        K0 = self.compute_K0(theta, index=4)
+        plaq = plaq_from_field_batch(theta)
+        cos_plaq_stack = torch.stack([torch.cos(plaq), torch.cos(plaq)], dim=1) # [batch_size, 2, L, L]
+        log_det = torch.log(1 - K0 * cos_plaq_stack).sum(dim=1).sum(dim=1).sum(dim=1)
+
+        return log_det
     
     def compute_action(self, theta, beta):
         """
         Compute action for given configuration
-        Input: theta with shape [batch_size, 2, L, L]
+        Input: theta with shape [batch_size, 2, L, L]; beta is a float
+        Output: action with shape [batch_size]
         """
-        batch_size = theta.shape[0]
-        plaq = plaq_from_field_batch(theta)
-        total_action = torch.sum(torch.cos(plaq))
+        plaq = plaq_from_field_batch(theta) # [batch_size, L, L]
+        total_action = torch.sum(torch.cos(plaq), dim=1).sum(dim=1)
         
-        return -beta * total_action / batch_size  # Average over batch
+        return -beta * total_action
     
     def compute_force(self, theta, beta, transformed=False):
         """
         Compute force (gradient of action)
-        Input: theta with shape [batch_size, 2, L, L]
+        Input: theta with shape [batch_size, 2, L, L]; beta is a float
+        Output: force with shape [batch_size, 2, L, L]
         """
+        batch_size = theta.shape[0]
+        
         if transformed:
             theta_ori = self.forward(theta)
             action = self.compute_action(theta_ori, beta)
             jac_logdet = self.compute_jac_logdet(theta)
-            
             total_action = action - jac_logdet
         else:
             total_action = self.compute_action(theta, beta)
-            
-        force = torch.autograd.grad(total_action, theta, create_graph=True)[0]
         
-        return force.squeeze(0)
+        # calculate force for each sample in batch
+        force = torch.zeros_like(theta)
+        for i in range(batch_size):
+            grad = torch.autograd.grad(total_action[i], theta, create_graph=True)[0]
+            force[i] = grad[i] 
+        
+        return force  # shape: [batch_size, 2, L, L]
 
     def train_step(self, theta_ori, beta):
         """Single training step
@@ -235,7 +243,7 @@ class FieldTransformation:
             
             self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
             
         return loss.item()
@@ -259,7 +267,7 @@ class FieldTransformation:
             
         return loss.item()
 
-    def train(self, train_data, test_data, beta, n_epochs=100, batch_size=1, patience=10):
+    def train(self, train_data, test_data, beta, n_epochs=100, batch_size=4, patience=10):
         """Train the model with early stopping"""
         train_losses = []
         test_losses = []
