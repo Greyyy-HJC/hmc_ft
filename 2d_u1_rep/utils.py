@@ -180,7 +180,7 @@ def hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charg
 
 
     # Plot results
-    plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_by_def, title_suffix="(Using Auto by Definition)")
+    hmc_fig = plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_by_def, title_suffix="(Using Auto by Definition)")
 
     # plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocor_from_chi, title_suffix="(Using Auto from Chi)")
 
@@ -188,12 +188,12 @@ def hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charg
     print(f"Thermalization acceptance rate: {therm_acceptance_rate:.4f}")
     print(f"Acceptance rate: {acceptance_rate:.4f}")
     
-    return
+    return hmc_fig
 
 
 def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, autocorrelations, title_suffix=""):
-    plt.figure(figsize=(18, 12))
-    fontsize = 18  # Set the font size for labels and titles
+    fig = plt.figure(figsize=(18, 12))
+    fontsize = 18
 
     plt.subplot(221)
     plt.plot(np.arange(len(therm_plaq_ls)), therm_plaq_ls, label='Thermalization Plaquette', color='blue')
@@ -242,3 +242,5 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
     print(">>> Theoretical plaquette: ", plaq_mean_theory(beta))
     print(">>> Mean plaq: ", np.mean(plaq_ls))
     print(">>> Std of mean plaq: ", np.std(plaq_ls) / np.sqrt(len(plaq_ls)))
+    
+    return fig
