@@ -74,12 +74,13 @@ class SimpleCNN(nn.Module):
 
 class FieldTransformation:
     """Neural network based field transformation"""
-    def __init__(self, lattice_size, device='cpu'):
+    def __init__(self, lattice_size, device='cpu', n_subsets=8):
         self.L = lattice_size
         self.device = torch.device(device)
+        self.n_subsets = n_subsets
         
-        # Create 8 independent models for each subset
-        self.models = nn.ModuleList([SimpleCNN().to(device) for _ in range(8)])
+        # Create n_subsets independent models for each subset
+        self.models = nn.ModuleList([SimpleCNN().to(device) for _ in range(n_subsets)])
         self.optimizers = [
             torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
             for model in self.models
@@ -131,7 +132,7 @@ class FieldTransformation:
         """Transform theta_new to theta_ori sequentially through all subsets"""
         theta_curr = theta.clone()
         
-        for index in range(8):
+        for index in range(self.n_subsets):
             theta_curr = theta_curr - self.ft_phase(theta_curr, index)
             
         return theta_curr
@@ -142,7 +143,7 @@ class FieldTransformation:
         max_iter = 100
         tol = 1e-6
         
-        for index in range(8):
+        for index in range(self.n_subsets):
             theta_iter = theta_curr.clone()
             
             for i in range(max_iter):
@@ -181,14 +182,14 @@ class FieldTransformation:
         log_det = torch.zeros(theta.shape[0], device=self.device)
         theta_curr = theta.clone()
         
-        for index in range(8):
+        for index in range(self.n_subsets):
             K0 = self.compute_K0(theta_curr, index)
             plaq = plaq_from_field_batch(theta_curr)
             cos_plaq_stack = torch.stack([torch.cos(plaq), torch.cos(plaq)], dim=1)
             log_det += torch.log(1 - K0 * cos_plaq_stack).sum(dim=1).sum(dim=1).sum(dim=1)
             
             # Update configuration for next subset
-            if index < 7:  # Don't need to update after last subset
+            if index < self.n_subsets - 1:  # Don't need to update after last subset
                 theta_curr = theta_curr - self.ft_phase(theta_curr, index)
         
         return log_det
