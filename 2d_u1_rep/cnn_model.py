@@ -7,6 +7,8 @@ from tqdm import tqdm
 
 from utils import plaq_from_field_batch
 
+import torch.autograd.functional as F
+
 def get_mask(index, batch_size, L):
     '''
     Get mask indices for a configuration with shape [batch_size, 2, L, L]
@@ -74,10 +76,11 @@ class SimpleCNN(nn.Module):
 
 class FieldTransformation:
     """Neural network based field transformation"""
-    def __init__(self, lattice_size, device='cpu', n_subsets=8):
+    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False):
         self.L = lattice_size
         self.device = torch.device(device)
         self.n_subsets = n_subsets
+        self.if_check_jac = if_check_jac
         
         # Create n_subsets independent models for each subset
         self.models = nn.ModuleList([SimpleCNN().to(device) for _ in range(n_subsets)])
@@ -194,6 +197,18 @@ class FieldTransformation:
         
         return log_det
     
+    #*: to check the jacobian log determinant computation
+    def compute_jac_logdet_autograd(self, theta):
+        """Compute total log determinant of Jacobian for all subsets using autograd"""
+        theta_curr = theta.clone()
+        theta_curr = theta_curr[0].unsqueeze(0) #! only take the first sample in batch
+        
+        jac = F.jacobian(self.forward, theta_curr)
+        jac_2d = jac.reshape(theta_curr.shape[0], theta_curr.numel(), theta_curr.numel())
+        log_det = torch.logdet(jac_2d)
+
+        return log_det
+    
     def compute_action(self, theta, beta):
         """
         Compute action for given configuration
@@ -217,6 +232,19 @@ class FieldTransformation:
             theta_ori = self.forward(theta)
             action = self.compute_action(theta_ori, beta)
             jac_logdet = self.compute_jac_logdet(theta)
+            
+            if self.if_check_jac:
+                jac_logdet_autograd = self.compute_jac_logdet_autograd(theta)
+                
+                diff = (jac_logdet_autograd[0] - jac_logdet[0]) / jac_logdet[0]
+                
+                if diff > 1e-4:
+                    print(f"Jacobian log determinant difference = {diff:.2f}")
+                else:
+                    print(f"Jacobian log determinant by hand is {jac_logdet[0]:.2e}")
+                    print(f"Jacobian log determinant by autograd is {jac_logdet_autograd[0]:.2e}")
+                    print("Jacobian is all gooood")
+            
             total_action = action - jac_logdet
         else:
             total_action = self.compute_action(theta, beta)
