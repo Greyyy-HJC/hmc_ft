@@ -5,6 +5,105 @@ import math
 from scipy.integrate import quad
 from scipy.special import i0, i1
 
+def get_field_mask(index, batch_size, L):
+    field_mask = torch.zeros((batch_size, 2, L, L), dtype=torch.bool)
+    
+    if index == 0:
+        field_mask[:, 0, 0::2, 0::2] = True
+        
+    elif index == 1:
+        field_mask[:, 0, 0::2, 1::2] = True
+        
+    elif index == 2:
+        field_mask[:, 0, 1::2, 0::2] = True
+        
+
+    elif index == 3:
+        field_mask[:, 0, 1::2, 1::2] = True
+        
+    elif index == 4:
+        field_mask[:, 1, 0::2, 0::2] = True
+        
+    elif index == 5:
+        field_mask[:, 1, 0::2, 1::2] = True
+        
+    elif index == 6:
+        field_mask[:, 1, 1::2, 0::2] = True
+        
+    elif index == 7:
+        field_mask[:, 1, 1::2, 1::2] = True
+
+    return field_mask
+
+def get_plaq_mask(index, batch_size, L):
+    plaq_mask = torch.zeros((batch_size, L, L), dtype=torch.bool)
+    
+    if index == 0:
+        plaq_mask[:, 1::2, :] = True
+        
+    elif index == 1:
+        plaq_mask[:, 1::2, :] = True
+        
+    elif index == 2:
+        plaq_mask[:, 0::2, :] = True
+        
+
+    elif index == 3:
+        plaq_mask[:, 0::2, :] = True
+        
+    elif index == 4:
+        plaq_mask[:, :, 1::2] = True
+        
+    elif index == 5:
+        plaq_mask[:, :, 0::2] = True
+        
+    elif index == 6:
+        plaq_mask[:, :, 1::2] = True
+        
+    elif index == 7:
+        plaq_mask[:, :, 0::2] = True
+        
+    return plaq_mask
+
+def get_rect_mask(index, batch_size, L):
+    rect_mask = torch.zeros((batch_size, 2, L, L), dtype=torch.bool)
+    
+    if index == 0:
+        rect_mask[:, 1, 1::2, :] = True
+        rect_mask[:, 1, 0::2, 1::2] = True
+        
+    elif index == 1:
+        rect_mask[:, 1, 1::2, :] = True
+        rect_mask[:, 1, 0::2, 0::2] = True
+        
+    elif index == 2:
+        rect_mask[:, 1, 0::2, :] = True
+        rect_mask[:, 1, 1::2, 1::2] = True
+        
+
+    elif index == 3:
+        rect_mask[:, 1, 0::2, :] = True
+        rect_mask[:, 1, 1::2, 0::2] = True
+        
+    elif index == 4:
+        rect_mask[:, 0, :, 1::2] = True
+        rect_mask[:, 0, 1::2, 0::2] = True
+        
+    elif index == 5:
+        rect_mask[:, 0, :, 0::2] = True
+        rect_mask[:, 0, 1::2, 1::2] = True
+        
+    elif index == 6:
+        rect_mask[:, 0, :, 1::2] = True
+        rect_mask[:, 0, 0::2, 0::2] = True
+        
+    elif index == 7:
+        rect_mask[:, 0, :, 0::2] = True
+        rect_mask[:, 0, 0::2, 1::2] = True
+
+    return rect_mask
+        
+
 def plaq_from_field_batch(theta):
     """
     Calculate the plaquette value for a batch of field configurations.
@@ -15,6 +114,20 @@ def plaq_from_field_batch(theta):
     thetaP = theta0 - theta1 - torch.roll(theta0, shifts=-1, dims=2) + torch.roll(theta1, shifts=-1, dims=1)
     
     return thetaP
+
+def rect_from_field_batch(theta):
+    """
+    Calculate the rectangle value for a batch of field configurations.
+    Input: theta with shape [batch_size, 2, L, L]
+    Output: rectangles with shape [batch_size, 2, L, L]
+    """
+    theta0, theta1 = theta[:, 0], theta[:, 1]  # [batch_size, L, L]
+    
+    rect0 = theta0 + torch.roll(theta0, shifts=-1, dims=1) + torch.roll(theta1, shifts=-2, dims=1) - torch.roll(theta0, shifts=(-1, -1), dims=(1, 2)) - torch.roll(theta0, shifts=-1, dims=2) - theta1
+    
+    rect1 = theta0 + torch.roll(theta1, shifts=-1, dims=1) + torch.roll(theta1, shifts=(-1, -1), dims=(1, 2)) - torch.roll(theta0, shifts=-2, dims=2) - torch.roll(theta1, shifts=-1, dims=2) - theta1
+    
+    return torch.stack([rect0, rect1], dim=1)
 
 def plaq_from_field(theta):
     """
