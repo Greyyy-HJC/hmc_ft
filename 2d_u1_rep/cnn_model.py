@@ -356,7 +356,10 @@ class FieldTransformation:
             force_new = self.compute_force(theta_new, beta, transformed=True)
             
             vol = self.L * self.L
-            loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2))
+            loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + \
+                   torch.norm(force_new - force_ori, p=4) / (vol**(1/4)) + \
+                   torch.norm(force_new - force_ori, p=6) / (vol**(1/6)) + \
+                   torch.norm(force_new - force_ori, p=8) / (vol**(1/8))
             
             # Update all models together
             for optimizer in self.plaq_optimizers:
@@ -386,7 +389,10 @@ class FieldTransformation:
         force_new = self.compute_force(theta_new, beta, transformed=True)
         
         vol = self.L * self.L
-        loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2))
+        loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + \
+               torch.norm(force_new - force_ori, p=4) / (vol**(1/4)) + \
+               torch.norm(force_new - force_ori, p=6) / (vol**(1/6)) + \
+               torch.norm(force_new - force_ori, p=8) / (vol**(1/8))
             
         return loss.item()
 
