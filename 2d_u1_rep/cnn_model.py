@@ -54,10 +54,11 @@ class rectCNN(nn.Module):
 
 class FieldTransformation:
     """Neural network based field transformation"""
-    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False):
+    def __init__(self, lattice_size, device='cpu', n_subsets=8, beta=6, if_check_jac=False):
         self.L = lattice_size
         self.device = torch.device(device)
         self.n_subsets = n_subsets
+        self.beta = beta
         self.if_check_jac = if_check_jac
         
         # Create n_subsets independent models for each subset
@@ -454,7 +455,7 @@ class FieldTransformation:
                     save_dict[f'optimizer_state_dict_plaq_{i}'] = optimizer.state_dict()
                 for i, optimizer in enumerate(self.rect_optimizers):
                     save_dict[f'optimizer_state_dict_rect_{i}'] = optimizer.state_dict()
-                torch.save(save_dict, 'models/best_model.pt')
+                torch.save(save_dict, f'models/best_model_L{self.L}_beta{self.beta}.pt')
             
             for scheduler in self.plaq_schedulers:
                 scheduler.step(test_loss)
@@ -476,12 +477,12 @@ class FieldTransformation:
         plt.ylabel('Loss')
         plt.legend()
         plt.grid(True)
-        plt.savefig('plots/cnn_loss.pdf', transparent=True)
+        plt.savefig(f'plots/cnn_loss_L{self.L}_beta{self.beta}.pdf', transparent=True)
         plt.show()
 
     def _load_best_model(self):
         """Load the best model from checkpoint for all subsets"""
-        checkpoint = torch.load('models/best_model.pt')
+        checkpoint = torch.load(f'models/best_model_L{self.L}_beta{self.beta}.pt')
         for i, model in enumerate(self.plaq_models):
             model.load_state_dict(checkpoint[f'model_state_dict_plaq_{i}'])
         for i, model in enumerate(self.rect_models):
