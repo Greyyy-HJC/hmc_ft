@@ -11,7 +11,7 @@ import torch.autograd.functional as F
 
 
 class plaqCNN(nn.Module):
-    def __init__(self, input_channels=4, output_channels=4, kernel_size=(3, 2)):
+    def __init__(self, input_channels=2, output_channels=4, kernel_size=(3, 2)):
         super().__init__()
         self.conv = nn.Conv2d(
             input_channels, 
@@ -88,11 +88,11 @@ class FieldTransformation:
     def compute_K0(self, theta, index):
         """
         Compute K0 for given theta and subset index
-        Input: theta with shape [batch_size, 4, L, L]
+        Input: theta with shape [batch_size, 2, L, L]
         Output: K0 with shape [batch_size, 4, L, L]
         """
         batch_size = theta.shape[0]
-        K0 = torch.zeros((batch_size, 4, self.L, self.L), device=self.device)
+        K0 = torch.zeros((batch_size, 4, self.L, self.L), device=self.device) 
         
         plaq = plaq_from_field_batch(theta)
         plaq_mask = get_plaq_mask(index, batch_size, self.L).to(self.device)
@@ -101,7 +101,7 @@ class FieldTransformation:
         
         plaq_sin_feature = torch.sin(plaq_masked)
         plaq_cos_feature = torch.cos(plaq_masked)
-        plaq_features = torch.stack([plaq_sin_feature, plaq_cos_feature, plaq_sin_feature, plaq_cos_feature], dim=1) # [batch_size, 4, L, L]
+        plaq_features = torch.stack([plaq_sin_feature, plaq_cos_feature], dim=1) # [batch_size, 2, L, L]
         
         # Use the corresponding model for this subset
         K0 += self.plaq_models[index](plaq_features) # [batch_size, 4, L, L]
@@ -141,30 +141,33 @@ class FieldTransformation:
         
         # for the link in direction 0 or 1, there are two related plaquettes, note the group derivative is -sin
         sin_plaq_dir0_1 = - torch.sin(plaq) # [batch_size, L, L]
-        sin_plaq_dir0_2 = torch.sin(torch.roll(plaq, shifts=-1, dims=2))
+        sin_plaq_dir0_2 = torch.sin(torch.roll(plaq, shifts=1, dims=2))
         
         sin_plaq_dir1_1 = torch.sin(plaq)
-        sin_plaq_dir1_2 = - torch.sin(torch.roll(plaq, shifts=-1, dims=1))
+        sin_plaq_dir1_2 = - torch.sin(torch.roll(plaq, shifts=1, dims=1))
         
         sin_plaq_stack = torch.stack([sin_plaq_dir0_1, sin_plaq_dir0_2, sin_plaq_dir1_1, sin_plaq_dir1_2], dim=1) # [batch_size, 4, L, L]
         
         K0 = self.compute_K0(theta, index) # [batch_size, 4, L, L]
+        ft_phase_plaq = K0 * sin_plaq_stack
+
         temp = K0 * sin_plaq_stack
-        ft_phase_plaq = torch.stack([
-            temp[:, 0] + temp[:, 1], # dir 0
+        ft_phase_plaq = torch.stack([ 
+            temp[:, 0] + temp[:, 1], # dir 0  
             temp[:, 2] + temp[:, 3]  # dir 1
         ], dim=1)  # [batch_size, 2, L, L]
+        
         
         rect = rect_from_field_batch(theta) # [batch_size, 2, L, L]
         rect_dir0 = rect[:, 0, :, :] # [batch_size, L, L]
         rect_dir1 = rect[:, 1, :, :] # [batch_size, L, L]
         
         # for the link in direction 0 or 1, there are two related rectangles, note the group derivative is -sin
-        sin_rect_dir0_1 = - torch.sin(torch.roll(rect_dir0, shifts=-1, dims=1)) # [batch_size, L, L]
-        sin_rect_dir0_2 = torch.sin(torch.roll(rect_dir0, shifts=(-1, -1), dims=(1, 2)))
+        sin_rect_dir0_1 = - torch.sin(torch.roll(rect_dir0, shifts=1, dims=1)) # [batch_size, L, L]
+        sin_rect_dir0_2 = torch.sin(torch.roll(rect_dir0, shifts=(1, 1), dims=(1, 2)))
         
-        sin_rect_dir1_1 = torch.sin(torch.roll(rect_dir1, shifts=-1, dims=2))
-        sin_rect_dir1_2 = - torch.sin(torch.roll(rect_dir1, shifts=(-1, -1), dims=(1, 2)))
+        sin_rect_dir1_1 = torch.sin(torch.roll(rect_dir1, shifts=1, dims=2))
+        sin_rect_dir1_2 = - torch.sin(torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2)))
         
         sin_rect_stack = torch.stack([sin_rect_dir0_1, sin_rect_dir0_2, sin_rect_dir1_1, sin_rect_dir1_2], dim=1) # [batch_size, 4, L, L]
         
@@ -244,28 +247,28 @@ class FieldTransformation:
             
             # for the link in direction 0 or 1, there are two related plaquettes, note there is an extra derivative
             cos_plaq_dir0_1 = - torch.cos(plaq) # [batch_size, L, L]
-            cos_plaq_dir0_2 = - torch.cos(torch.roll(plaq, shifts=-1, dims=2))
+            cos_plaq_dir0_2 = - torch.cos(torch.roll(plaq, shifts=1, dims=2))
             
             cos_plaq_dir1_1 = - torch.cos(plaq)
-            cos_plaq_dir1_2 = - torch.cos(torch.roll(plaq, shifts=-1, dims=1))
+            cos_plaq_dir1_2 = - torch.cos(torch.roll(plaq, shifts=1, dims=1))
             
             cos_plaq_stack = torch.stack([cos_plaq_dir0_1, cos_plaq_dir0_2, cos_plaq_dir1_1, cos_plaq_dir1_2], dim=1) # [batch_size, 4, L, L]
             
             K0 = self.compute_K0(theta_curr, index) # [batch_size, 4, L, L]
             
             temp = K0 * cos_plaq_stack
-            plaq_jac_shift = torch.stack([
-                temp[:, 0] + temp[:, 1], # dir 0
+            plaq_jac_shift = torch.stack([ 
+                temp[:, 0] + temp[:, 1], # dir 0 
                 temp[:, 2] + temp[:, 3]  # dir 1
             ], dim=1)  # [batch_size, 2, L, L]
             plaq_jac_shift = plaq_jac_shift * field_mask
             
             # for the link in direction 0 or 1, there are two related rectangles, note there is an extra derivative
-            cos_rect_dir0_1 = - torch.cos(torch.roll(rect_dir0, shifts=-1, dims=1)) # [batch_size, L, L]
-            cos_rect_dir0_2 = - torch.cos(torch.roll(rect_dir0, shifts=(-1, -1), dims=(1, 2)))
+            cos_rect_dir0_1 = - torch.cos(torch.roll(rect_dir0, shifts=1, dims=1)) # [batch_size, L, L]
+            cos_rect_dir0_2 = - torch.cos(torch.roll(rect_dir0, shifts=(1, 1), dims=(1, 2)))
             
-            cos_rect_dir1_1 = - torch.cos(torch.roll(rect_dir1, shifts=-1, dims=2))
-            cos_rect_dir1_2 = - torch.cos(torch.roll(rect_dir1, shifts=(-1, -1), dims=(1, 2)))
+            cos_rect_dir1_1 = - torch.cos(torch.roll(rect_dir1, shifts=1, dims=2))
+            cos_rect_dir1_2 = - torch.cos(torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2)))
             
             cos_rect_stack = torch.stack([cos_rect_dir0_1, cos_rect_dir0_2, cos_rect_dir1_1, cos_rect_dir1_2], dim=1) # [batch_size, 4, L, L]
             
@@ -278,11 +281,12 @@ class FieldTransformation:
             ], dim=1)  # [batch_size, 2, L, L]
             rect_jac_shift = rect_jac_shift * field_mask
             
-            log_det += torch.log(1 - plaq_jac_shift - rect_jac_shift).sum(dim=1).sum(dim=1).sum(dim=1)
+            log_det += torch.log(1 + plaq_jac_shift + rect_jac_shift).sum(dim=1).sum(dim=1).sum(dim=1)
+            
             
             # Update configuration for next subset
             if index < self.n_subsets - 1:  # Don't need to update after last subset
-                theta_curr = theta_curr - self.ft_phase(theta_curr, index)
+                theta_curr = theta_curr + self.ft_phase(theta_curr, index)
         
         return log_det
     
@@ -327,8 +331,9 @@ class FieldTransformation:
                 
                 diff = (jac_logdet_autograd[0] - jac_logdet[0]) / jac_logdet[0]
                 
-                if diff > 1e-4:
+                if abs(diff.item()) > 1e-4:
                     print(f"Jacobian log determinant difference = {diff:.2f}")
+                    print("Jacobian is not correct!")
                 else:
                     print(f"Jacobian log determinant by hand is {jac_logdet[0]:.2e}")
                     print(f"Jacobian log determinant by autograd is {jac_logdet_autograd[0]:.2e}")
@@ -488,7 +493,7 @@ class FieldTransformation:
 
     def _load_best_model(self):
         """Load the best model from checkpoint for all subsets"""
-        checkpoint = torch.load(f'models/best_model_L{self.L}_beta{self.beta}.pt')
+        checkpoint = torch.load(f'models/best_model_L{self.L}_beta{self.beta}.pt', weights_only=False)
         for i, model in enumerate(self.plaq_models):
             model.load_state_dict(checkpoint[f'model_state_dict_plaq_{i}'])
         for i, model in enumerate(self.rect_models):

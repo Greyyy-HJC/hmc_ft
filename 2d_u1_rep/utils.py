@@ -17,7 +17,6 @@ def get_field_mask(index, batch_size, L):
     elif index == 2:
         field_mask[:, 0, 1::2, 0::2] = True
         
-
     elif index == 3:
         field_mask[:, 0, 1::2, 1::2] = True
         
