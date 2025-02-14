@@ -357,7 +357,7 @@ class FieldTransformation:
         
         with torch.autograd.set_grad_enabled(True):
             theta_new = self.inverse(theta_ori)
-            force_ori = self.compute_force(theta_new, beta=2.5)
+            force_ori = self.compute_force(theta_new, beta=1.)
             force_new = self.compute_force(theta_new, beta, transformed=True)
             
             vol = self.L * self.L
@@ -390,7 +390,7 @@ class FieldTransformation:
         theta_ori = theta_ori.to(self.device)
         
         theta_new = self.inverse(theta_ori)
-        force_ori = self.compute_force(theta_new, beta=2.5)
+        force_ori = self.compute_force(theta_new, beta=1.)
         force_new = self.compute_force(theta_new, beta, transformed=True)
         
         vol = self.L * self.L
