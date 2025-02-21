@@ -54,11 +54,10 @@ class rectCNN(nn.Module):
 
 class FieldTransformation:
     """Neural network based field transformation"""
-    def __init__(self, lattice_size, device='cpu', n_subsets=8, beta=6, if_check_jac=False):
+    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False):
         self.L = lattice_size
         self.device = torch.device(device)
         self.n_subsets = n_subsets
-        self.beta = beta
         self.if_check_jac = if_check_jac
         
         # Create n_subsets independent models for each subset
@@ -214,7 +213,7 @@ class FieldTransformation:
             
             if diff >= tol:
                 print(f"Warning: Inverse iteration for subset {index} did not converge, final diff = {diff:.2e}")
-            
+        
         return theta_curr
 
     def field_transformation(self, theta):
@@ -283,10 +282,7 @@ class FieldTransformation:
             
             log_det += torch.log(1 + plaq_jac_shift + rect_jac_shift).sum(dim=1).sum(dim=1).sum(dim=1)
             
-            
-            # Update configuration for next subset
-            if index < self.n_subsets - 1:  # Don't need to update after last subset
-                theta_curr = theta_curr + self.ft_phase(theta_curr, index)
+            theta_curr = theta_curr + self.ft_phase(theta_curr, index)
         
         return log_det
     
@@ -350,21 +346,31 @@ class FieldTransformation:
             force[i] = grad[i] 
         
         return force  # shape: [batch_size, 2, L, L]
+    
+    def loss_fn(self, theta_ori):
+        """
+        Compute loss function for given configuration
+        Input: theta_ori with shape [batch_size, 2, L, L]
+        Output: loss with shape [batch_size]
+        """
+        theta_new = self.inverse(theta_ori)
+        force_ori = self.compute_force(theta_new, beta=1)
+        force_new = self.compute_force(theta_new, self.train_beta, transformed=True)
+            
+        vol = self.L * self.L
+        return torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + \
+               torch.norm(force_new - force_ori, p=4) / (vol**(1/4)) + \
+               torch.norm(force_new - force_ori, p=6) / (vol**(1/6)) + \
+               torch.norm(force_new - force_ori, p=8) / (vol**(1/8)) #+ \
+               #torch.norm(force_new - force_ori, p=float('inf'))
 
-    def train_step(self, theta_ori, beta):
+    def train_step(self, theta_ori):
         """Single training step for all subsets together"""
         theta_ori = theta_ori.to(self.device)
         
         with torch.autograd.set_grad_enabled(True):
-            theta_new = self.inverse(theta_ori)
-            force_ori = self.compute_force(theta_new, beta=1.)
-            force_new = self.compute_force(theta_new, beta, transformed=True)
             
-            vol = self.L * self.L
-            loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + \
-                   torch.norm(force_new - force_ori, p=4) / (vol**(1/4)) + \
-                   torch.norm(force_new - force_ori, p=6) / (vol**(1/6)) + \
-                   torch.norm(force_new - force_ori, p=8) / (vol**(1/8))
+            loss = self.loss_fn(theta_ori)
             
             # Update all models together
             for optimizer in self.plaq_optimizers:
@@ -379,33 +385,25 @@ class FieldTransformation:
             
         return loss.item()
 
-    def evaluate_step(self, theta_ori, beta):
+    def evaluate_step(self, theta_ori):
         """Single evaluation step
         Args:
             theta_ori (torch.Tensor): Original field configuration
-            beta (float): Coupling constant
         Returns:
             float: Loss value
         """
         theta_ori = theta_ori.to(self.device)
-        
-        theta_new = self.inverse(theta_ori)
-        force_ori = self.compute_force(theta_new, beta=1.)
-        force_new = self.compute_force(theta_new, beta, transformed=True)
-        
-        vol = self.L * self.L
-        loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + \
-               torch.norm(force_new - force_ori, p=4) / (vol**(1/4)) + \
-               torch.norm(force_new - force_ori, p=6) / (vol**(1/6)) + \
-               torch.norm(force_new - force_ori, p=8) / (vol**(1/8))
+        loss = self.loss_fn(theta_ori)
             
         return loss.item()
 
-    def train(self, train_data, test_data, beta, n_epochs=100, batch_size=4):
+    def train(self, train_data, test_data, train_beta, n_epochs=100, batch_size=4):
         """Train all models together"""
         train_losses = []
         test_losses = []
         best_loss = float('inf')
+        
+        self.train_beta = train_beta
         
         train_loader = torch.utils.data.DataLoader(
             train_data, batch_size=batch_size, shuffle=True
@@ -424,7 +422,7 @@ class FieldTransformation:
             epoch_losses = []
             
             for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{n_epochs}", leave=False):
-                loss = self.train_step(batch, beta)
+                loss = self.train_step(batch)
                 epoch_losses.append(loss)
                 
             train_loss = np.mean(epoch_losses)
@@ -439,7 +437,7 @@ class FieldTransformation:
             test_losses_epoch = []
             
             for batch in tqdm(test_loader, desc="Evaluating", leave=False):
-                loss = self.evaluate_step(batch, beta)
+                loss = self.evaluate_step(batch)
                 test_losses_epoch.append(loss)
                 
             test_loss = np.mean(test_losses_epoch)
@@ -466,7 +464,7 @@ class FieldTransformation:
                     save_dict[f'optimizer_state_dict_plaq_{i}'] = optimizer.state_dict()
                 for i, optimizer in enumerate(self.rect_optimizers):
                     save_dict[f'optimizer_state_dict_rect_{i}'] = optimizer.state_dict()
-                torch.save(save_dict, f'models/best_model_L{self.L}_beta{self.beta}.pt')
+                torch.save(save_dict, f'models/best_model_L{self.L}_train_beta{self.train_beta}.pt')
             
             for scheduler in self.plaq_schedulers:
                 scheduler.step(test_loss)
@@ -488,12 +486,12 @@ class FieldTransformation:
         plt.ylabel('Loss')
         plt.legend()
         plt.grid(True)
-        plt.savefig(f'plots/cnn_loss_L{self.L}_beta{self.beta}.pdf', transparent=True)
+        plt.savefig(f'plots/cnn_loss_L{self.L}_train_beta{self.train_beta}.pdf', transparent=True)
         plt.show()
 
     def _load_best_model(self):
         """Load the best model from checkpoint for all subsets"""
-        checkpoint = torch.load(f'models/best_model_L{self.L}_beta{self.beta}.pt', weights_only=False)
+        checkpoint = torch.load(f'models/best_model_L{self.L}_train_beta{self.train_beta}.pt', weights_only=False)
         for i, model in enumerate(self.plaq_models):
             model.load_state_dict(checkpoint[f'model_state_dict_plaq_{i}'])
         for i, model in enumerate(self.rect_models):
