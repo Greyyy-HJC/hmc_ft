@@ -475,7 +475,7 @@ class FieldTransformation:
         self._plot_training_history(train_losses, test_losses)
         
         # Load best model
-        self._load_best_model()
+        self._load_best_model(train_beta)
 
     def _plot_training_history(self, train_losses, test_losses):
         """Plot and save training history"""
@@ -489,9 +489,9 @@ class FieldTransformation:
         plt.savefig(f'plots/cnn_loss_L{self.L}_train_beta{self.train_beta}.pdf', transparent=True)
         plt.show()
 
-    def _load_best_model(self):
+    def _load_best_model(self, train_beta):
         """Load the best model from checkpoint for all subsets"""
-        checkpoint = torch.load(f'models/best_model_L{self.L}_train_beta{self.train_beta}.pt', weights_only=False)
+        checkpoint = torch.load(f'models/best_model_L{self.L}_train_beta{train_beta}.pt', weights_only=False)
         for i, model in enumerate(self.plaq_models):
             model.load_state_dict(checkpoint[f'model_state_dict_plaq_{i}'])
         for i, model in enumerate(self.rect_models):
