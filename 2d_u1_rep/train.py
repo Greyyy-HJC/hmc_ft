@@ -5,7 +5,7 @@ from cnn_model import FieldTransformation
 
 
 # Parameters
-lattice_size = 32
+lattice_size = 8
 
 # Initialize device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -16,9 +16,9 @@ torch.set_default_dtype(torch.float32)
 
 # %%
 # initialize the field transformation
-nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=8, if_check_jac=False) #todo
+nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=1, if_check_jac=False) #todo
 
-for train_beta in range(3, 8):
+for train_beta in range(3, 4):
     # load the data
     data = np.load(f'dump/theta_ori_L{lattice_size}_beta{train_beta}.npy')
     tensor_data = torch.from_numpy(data).float().to(device)
@@ -33,7 +33,7 @@ for train_beta in range(3, 8):
 
     # train the model
     print("\n>>> Training the model at beta = ", train_beta)
-    nn_ft.train(train_data, test_data, train_beta, n_epochs=16, batch_size=32)
+    nn_ft.train(train_data, test_data, train_beta, n_epochs=32, batch_size=32)
 
 
 

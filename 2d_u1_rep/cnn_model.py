@@ -11,7 +11,7 @@ import torch.autograd.functional as F
 
 
 class plaqCNN(nn.Module):
-    def __init__(self, input_channels=2, output_channels=4, kernel_size=(3, 2)):
+    def __init__(self, input_channels=2, output_channels=4, kernel_size=(3, 3)):
         super().__init__()
         self.conv = nn.Conv2d(
             input_channels, 
@@ -23,7 +23,7 @@ class plaqCNN(nn.Module):
         self.activation = nn.GELU()
 
     def forward(self, x):
-        # input shape: [batch_size, 4, L, L]
+        # input shape: [batch_size, 2, L, L]
         x = self.conv(x)
         x = self.activation(x)
         x = torch.arctan(x) / torch.pi / 2 # range [-1/4, 1/4]
@@ -32,7 +32,7 @@ class plaqCNN(nn.Module):
     
 
 class rectCNN(nn.Module):
-    def __init__(self, input_channels=4, output_channels=4, kernel_size=(3, 3)):
+    def __init__(self, input_channels=4, output_channels=8, kernel_size=(3, 3)):
         super().__init__()
         self.conv = nn.Conv2d(
             input_channels, 
@@ -48,7 +48,7 @@ class rectCNN(nn.Module):
         x = self.conv(x)
         x = self.activation(x)
         x = torch.arctan(x) / torch.pi / 2 # range [-1/4, 1/4]
-        # output shape: [batch_size, 4, L, L]
+        # output shape: [batch_size, 8, L, L]
         return x 
 
 
@@ -114,7 +114,7 @@ class FieldTransformation:
         Output: K1 with shape [batch_size, 4, L, L]
         """
         batch_size = theta.shape[0]
-        K1 = torch.zeros((batch_size, 4, self.L, self.L), device=self.device)
+        K1 = torch.zeros((batch_size, 8, self.L, self.L), device=self.device)
         
         rect = rect_from_field_batch(theta)
         rect_mask = get_rect_mask(index, batch_size, self.L).to(self.device)
@@ -126,7 +126,7 @@ class FieldTransformation:
         rect_features = torch.cat([rect_sin_feature, rect_cos_feature], dim=1) # [batch_size, 4, L, L]
         
         # Use the corresponding model for this subset
-        K1 += self.rect_models[index](rect_features) # [batch_size, 4, L, L]
+        K1 += self.rect_models[index](rect_features) # [batch_size, 8, L, L]
                 
         return K1
     
@@ -161,20 +161,24 @@ class FieldTransformation:
         rect_dir0 = rect[:, 0, :, :] # [batch_size, L, L]
         rect_dir1 = rect[:, 1, :, :] # [batch_size, L, L]
         
-        # for the link in direction 0 or 1, there are two related rectangles, note the group derivative is -sin
+        # for the link in direction 0 or 1, there are four related rectangles, note the group derivative is -sin
         sin_rect_dir0_1 = - torch.sin(torch.roll(rect_dir0, shifts=1, dims=1)) # [batch_size, L, L]
         sin_rect_dir0_2 = torch.sin(torch.roll(rect_dir0, shifts=(1, 1), dims=(1, 2)))
+        sin_rect_dir0_3 = - torch.sin(rect_dir0)
+        sin_rect_dir0_4 = torch.sin(torch.roll(rect_dir0, shifts=1, dims=2))
         
         sin_rect_dir1_1 = torch.sin(torch.roll(rect_dir1, shifts=1, dims=2))
         sin_rect_dir1_2 = - torch.sin(torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2)))
+        sin_rect_dir1_3 = torch.sin(rect_dir1)
+        sin_rect_dir1_4 = - torch.sin(torch.roll(rect_dir1, shifts=1, dims=1))
         
-        sin_rect_stack = torch.stack([sin_rect_dir0_1, sin_rect_dir0_2, sin_rect_dir1_1, sin_rect_dir1_2], dim=1) # [batch_size, 4, L, L]
+        sin_rect_stack = torch.stack([sin_rect_dir0_1, sin_rect_dir0_2, sin_rect_dir0_3, sin_rect_dir0_4, sin_rect_dir1_1, sin_rect_dir1_2, sin_rect_dir1_3, sin_rect_dir1_4], dim=1) # [batch_size, 8, L, L]
         
         K1 = self.compute_K1(theta, index) # [batch_size, 4, L, L]
         temp = K1 * sin_rect_stack
         ft_phase_rect = torch.stack([
-            temp[:, 0] + temp[:, 1], # dir 0
-            temp[:, 2] + temp[:, 3]  # dir 1
+            temp[:, 0] + temp[:, 1] + temp[:, 2] + temp[:, 3], # dir 0
+            temp[:, 4] + temp[:, 5] + temp[:, 6] + temp[:, 7]  # dir 1
         ], dim=1)  # [batch_size, 2, L, L]
         
         field_mask = get_field_mask(index, batch_size, self.L).to(self.device)
@@ -262,21 +266,25 @@ class FieldTransformation:
             ], dim=1)  # [batch_size, 2, L, L]
             plaq_jac_shift = plaq_jac_shift * field_mask
             
-            # for the link in direction 0 or 1, there are two related rectangles, note there is an extra derivative
+            # for the link in direction 0 or 1, there are four related rectangles, note there is an extra derivative
             cos_rect_dir0_1 = - torch.cos(torch.roll(rect_dir0, shifts=1, dims=1)) # [batch_size, L, L]
             cos_rect_dir0_2 = - torch.cos(torch.roll(rect_dir0, shifts=(1, 1), dims=(1, 2)))
+            cos_rect_dir0_3 = - torch.cos(rect_dir0)
+            cos_rect_dir0_4 = - torch.cos(torch.roll(rect_dir0, shifts=1, dims=2))
             
             cos_rect_dir1_1 = - torch.cos(torch.roll(rect_dir1, shifts=1, dims=2))
             cos_rect_dir1_2 = - torch.cos(torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2)))
+            cos_rect_dir1_3 = - torch.cos(rect_dir1)
+            cos_rect_dir1_4 = - torch.cos(torch.roll(rect_dir1, shifts=1, dims=1))
             
-            cos_rect_stack = torch.stack([cos_rect_dir0_1, cos_rect_dir0_2, cos_rect_dir1_1, cos_rect_dir1_2], dim=1) # [batch_size, 4, L, L]
+            cos_rect_stack = torch.stack([cos_rect_dir0_1, cos_rect_dir0_2, cos_rect_dir0_3, cos_rect_dir0_4, cos_rect_dir1_1, cos_rect_dir1_2, cos_rect_dir1_3, cos_rect_dir1_4], dim=1) # [batch_size, 8, L, L]
             
-            K1 = self.compute_K1(theta_curr, index) # [batch_size, 4, L, L]
+            K1 = self.compute_K1(theta_curr, index) # [batch_size, 8, L, L]
             
             temp = K1 * cos_rect_stack
             rect_jac_shift = torch.stack([
-                temp[:, 0] + temp[:, 1], # dir 0
-                temp[:, 2] + temp[:, 3]  # dir 1
+                temp[:, 0] + temp[:, 1] + temp[:, 2] + temp[:, 3], # dir 0
+                temp[:, 4] + temp[:, 5] + temp[:, 6] + temp[:, 7]  # dir 1
             ], dim=1)  # [batch_size, 2, L, L]
             rect_jac_shift = rect_jac_shift * field_mask
             
