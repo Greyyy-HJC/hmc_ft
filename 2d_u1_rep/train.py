@@ -16,7 +16,7 @@ torch.set_default_dtype(torch.float32)
 
 # %%
 # initialize the field transformation
-nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=1, if_check_jac=False) #todo
+nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=8, if_check_jac=True, use_combined_model=True) #todo
 
 for train_beta in range(3, 4):
     # load the data

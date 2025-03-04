@@ -52,37 +52,143 @@ class rectCNN(nn.Module):
         return x 
 
 
+class combineCNN(nn.Module):
+    def __init__(self, plaq_channels=4, rect_channels=8, output_channels=12, kernel_size=(3, 3)):
+        super().__init__()
+        # 合并 plaq 和 rect 特征的输入通道数
+        combined_input_channels = plaq_channels + rect_channels
+        
+        self.conv = nn.Conv2d(
+            combined_input_channels, 
+            output_channels, 
+            kernel_size, 
+            padding='same',
+            padding_mode='circular'
+        )
+        self.activation = nn.GELU()
+
+    def forward(self, plaq_features, rect_features):
+        # plaq_features shape: [batch_size, plaq_channels, L, L]
+        # rect_features shape: [batch_size, rect_channels, L, L]
+        
+        # 合并特征
+        x = torch.cat([plaq_features, rect_features], dim=1)
+        
+        x = self.conv(x)
+        x = self.activation(x)
+        x = torch.arctan(x) / torch.pi / 2  # range [-1/4, 1/4]
+        
+        # 输出前4个通道作为plaq系数，后8个通道作为rect系数
+        plaq_coeffs = x[:, :4, :, :]  # [batch_size, 4, L, L]
+        rect_coeffs = x[:, 4:, :, :]  # [batch_size, 8, L, L]
+        
+        return plaq_coeffs, rect_coeffs
+
+
 class FieldTransformation:
     """Neural network based field transformation"""
-    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False):
+    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False, use_combined_model=True):
         self.L = lattice_size
         self.device = torch.device(device)
         self.n_subsets = n_subsets
         self.if_check_jac = if_check_jac
+        self.use_combined_model = use_combined_model
         
         # Create n_subsets independent models for each subset
-        self.plaq_models = nn.ModuleList([plaqCNN().to(device) for _ in range(n_subsets)])
-        self.rect_models = nn.ModuleList([rectCNN().to(device) for _ in range(n_subsets)])
-        self.plaq_optimizers = [
-            torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
-            for model in self.plaq_models
-        ]
-        self.rect_optimizers = [
-            torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
-            for model in self.rect_models
-        ]
-        self.plaq_schedulers = [
-            torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, mode='min', factor=0.5, patience=5, verbose=True
-            )
-            for optimizer in self.plaq_optimizers
-        ]
-        self.rect_schedulers = [
-            torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, mode='min', factor=0.5, patience=5, verbose=True
-            )
-            for optimizer in self.rect_optimizers
-        ]
+        if use_combined_model:
+            # 使用组合模型
+            self.plaq_models = nn.ModuleList([plaqCNN().to(device) for _ in range(n_subsets)])
+            self.rect_models = nn.ModuleList([rectCNN().to(device) for _ in range(n_subsets)])
+            self.combine_models = nn.ModuleList([combineCNN().to(device) for _ in range(n_subsets)])
+            
+            self.plaq_optimizers = [
+                torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
+                for model in self.plaq_models
+            ]
+            self.rect_optimizers = [
+                torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
+                for model in self.rect_models
+            ]
+            self.combine_optimizers = [
+                torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
+                for model in self.combine_models
+            ]
+            
+            self.plaq_schedulers = [
+                torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, mode='min', factor=0.5, patience=5, verbose=True
+                )
+                for optimizer in self.plaq_optimizers
+            ]
+            self.rect_schedulers = [
+                torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, mode='min', factor=0.5, patience=5, verbose=True
+                )
+                for optimizer in self.rect_optimizers
+            ]
+            self.combine_schedulers = [
+                torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, mode='min', factor=0.5, patience=5, verbose=True
+                )
+                for optimizer in self.combine_optimizers
+            ]
+        else:
+            # 使用原来的独立模型
+            self.plaq_models = nn.ModuleList([plaqCNN().to(device) for _ in range(n_subsets)])
+            self.rect_models = nn.ModuleList([rectCNN().to(device) for _ in range(n_subsets)])
+            self.plaq_optimizers = [
+                torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
+                for model in self.plaq_models
+            ]
+            self.rect_optimizers = [
+                torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
+                for model in self.rect_models
+            ]
+            self.plaq_schedulers = [
+                torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, mode='min', factor=0.5, patience=5, verbose=True
+                )
+                for optimizer in self.plaq_optimizers
+            ]
+            self.rect_schedulers = [
+                torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, mode='min', factor=0.5, patience=5, verbose=True
+                )
+                for optimizer in self.rect_optimizers
+            ]
+
+    def compute_K0_K1(self, theta, index):
+        """
+        使用组合模型计算K0和K1
+        Input: theta with shape [batch_size, 2, L, L]
+        Output: K0 with shape [batch_size, 4, L, L], K1 with shape [batch_size, 8, L, L]
+        """
+        batch_size = theta.shape[0]
+        
+        # 计算plaq特征
+        plaq = plaq_from_field_batch(theta)
+        plaq_mask = get_plaq_mask(index, batch_size, self.L).to(self.device)
+        plaq_masked = plaq * plaq_mask
+        plaq_sin_feature = torch.sin(plaq_masked)
+        plaq_cos_feature = torch.cos(plaq_masked)
+        plaq_features = torch.stack([plaq_sin_feature, plaq_cos_feature], dim=1)
+        
+        # 计算rect特征
+        rect = rect_from_field_batch(theta)
+        rect_mask = get_rect_mask(index, batch_size, self.L).to(self.device)
+        rect_masked = rect * rect_mask
+        rect_sin_feature = torch.sin(rect_masked)
+        rect_cos_feature = torch.cos(rect_masked)
+        rect_features = torch.cat([rect_sin_feature, rect_cos_feature], dim=1)
+        
+        # 使用plaqCNN和rectCNN提取特征
+        plaq_intermediate = self.plaq_models[index](plaq_features)
+        rect_intermediate = self.rect_models[index](rect_features)
+        
+        # 使用combineCNN生成最终的K0和K1
+        K0, K1 = self.combine_models[index](plaq_intermediate, rect_intermediate)
+        
+        return K0, K1
 
     def compute_K0(self, theta, index):
         """
@@ -90,6 +196,11 @@ class FieldTransformation:
         Input: theta with shape [batch_size, 2, L, L]
         Output: K0 with shape [batch_size, 4, L, L]
         """
+        if self.use_combined_model:
+            K0, _ = self.compute_K0_K1(theta, index)
+            return K0
+        
+        # 原来的实现
         batch_size = theta.shape[0]
         K0 = torch.zeros((batch_size, 4, self.L, self.L), device=self.device) 
         
@@ -113,6 +224,11 @@ class FieldTransformation:
         Input: theta with shape [batch_size, 4, L, L]
         Output: K1 with shape [batch_size, 4, L, L]
         """
+        if self.use_combined_model:
+            _, K1 = self.compute_K0_K1(theta, index)
+            return K1
+        
+        # 原来的实现
         batch_size = theta.shape[0]
         K1 = torch.zeros((batch_size, 8, self.L, self.L), device=self.device)
         
@@ -129,8 +245,7 @@ class FieldTransformation:
         K1 += self.rect_models[index](rect_features) # [batch_size, 8, L, L]
                 
         return K1
-    
-    
+
     def ft_phase(self, theta, index):
         """
         Compute the phase factor for field transformation for a specific subset
@@ -174,7 +289,7 @@ class FieldTransformation:
         
         sin_rect_stack = torch.stack([sin_rect_dir0_1, sin_rect_dir0_2, sin_rect_dir0_3, sin_rect_dir0_4, sin_rect_dir1_1, sin_rect_dir1_2, sin_rect_dir1_3, sin_rect_dir1_4], dim=1) # [batch_size, 8, L, L]
         
-        K1 = self.compute_K1(theta, index) # [batch_size, 4, L, L]
+        K1 = self.compute_K1(theta, index) # [batch_size, 8, L, L]
         temp = K1 * sin_rect_stack
         ft_phase_rect = torch.stack([
             temp[:, 0] + temp[:, 1] + temp[:, 2] + temp[:, 3], # dir 0
@@ -385,11 +500,19 @@ class FieldTransformation:
                 optimizer.zero_grad()
             for optimizer in self.rect_optimizers:
                 optimizer.zero_grad()
+            if self.use_combined_model:
+                for optimizer in self.combine_optimizers:
+                    optimizer.zero_grad()
+            
             loss.backward()
+            
             for optimizer in self.plaq_optimizers:
                 optimizer.step()
             for optimizer in self.rect_optimizers:
                 optimizer.step()
+            if self.use_combined_model:
+                for optimizer in self.combine_optimizers:
+                    optimizer.step()
             
         return loss.item()
 
@@ -426,6 +549,9 @@ class FieldTransformation:
                 model.train()
             for model in self.rect_models:
                 model.train()
+            if self.use_combined_model:
+                for model in self.combine_models:
+                    model.train()
                 
             epoch_losses = []
             
@@ -441,6 +567,9 @@ class FieldTransformation:
                 model.eval()
             for model in self.rect_models:
                 model.eval()
+            if self.use_combined_model:
+                for model in self.combine_models:
+                    model.eval()
                 
             test_losses_epoch = []
             
@@ -468,16 +597,25 @@ class FieldTransformation:
                     save_dict[f'model_state_dict_plaq_{i}'] = model.state_dict()
                 for i, model in enumerate(self.rect_models):
                     save_dict[f'model_state_dict_rect_{i}'] = model.state_dict()
+                if self.use_combined_model:
+                    for i, model in enumerate(self.combine_models):
+                        save_dict[f'model_state_dict_combine_{i}'] = model.state_dict()
                 for i, optimizer in enumerate(self.plaq_optimizers):
                     save_dict[f'optimizer_state_dict_plaq_{i}'] = optimizer.state_dict()
                 for i, optimizer in enumerate(self.rect_optimizers):
                     save_dict[f'optimizer_state_dict_rect_{i}'] = optimizer.state_dict()
+                if self.use_combined_model:
+                    for i, optimizer in enumerate(self.combine_optimizers):
+                        save_dict[f'optimizer_state_dict_combine_{i}'] = optimizer.state_dict()
                 torch.save(save_dict, f'models/best_model_L{self.L}_train_beta{self.train_beta}.pt')
             
             for scheduler in self.plaq_schedulers:
                 scheduler.step(test_loss)
             for scheduler in self.rect_schedulers:
                 scheduler.step(test_loss)
+            if self.use_combined_model:
+                for scheduler in self.combine_schedulers:
+                    scheduler.step(test_loss)
         
         # Plot training history
         self._plot_training_history(train_losses, test_losses)
@@ -504,4 +642,7 @@ class FieldTransformation:
             model.load_state_dict(checkpoint[f'model_state_dict_plaq_{i}'])
         for i, model in enumerate(self.rect_models):
             model.load_state_dict(checkpoint[f'model_state_dict_rect_{i}'])
+        if self.use_combined_model and f'model_state_dict_combine_0' in checkpoint:
+            for i, model in enumerate(self.combine_models):
+                model.load_state_dict(checkpoint[f'model_state_dict_combine_{i}'])
         print(f"Loaded best models from epoch {checkpoint['epoch']} with loss {checkpoint['loss']:.6f}") 
