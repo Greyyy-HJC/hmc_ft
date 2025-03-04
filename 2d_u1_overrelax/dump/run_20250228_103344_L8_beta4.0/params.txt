@@ -1,0 +1,15 @@
+lattice_size: 8
+beta: 4.0
+n_thermalization: 100
+n_hmc_iterations: 512
+n_steps: 10
+step_size: 0.1
+latent_dim: 128
+gan_epochs: 50
+batch_size: 64
+device: cpu
+max_lag: 100
+store_interval: 1
+gan_attempts: 5
+gan_threshold: 0.5
+gan_frequency: 5

@@ -1,0 +1,5 @@
+Standard HMC acceptance rate: 0.5800
+HMC with GAN acceptance rate: 0.5650
+Integrated autocorrelation time (Standard HMC): 64.74
+Integrated autocorrelation time (HMC with GAN): 43.14
+Improvement factor: 1.50x
