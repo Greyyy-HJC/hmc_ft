@@ -191,6 +191,70 @@ class HMC_U1_FT:
         else:
             return theta, False, H_old.item()
 
+    def tune_step_size(self, n_tune_steps=1000, target_rate=0.65, target_tolerance=0.15, initial_step_size=0.2, max_attempts=10, theta=None):
+        """
+        Tune the step size to achieve desired acceptance rate using binary search.
+        
+        Parameters:
+        -----------
+        n_tune_steps : int
+            Number of steps to use for tuning
+        target_rate : float
+            Target acceptance rate (default: 0.65)
+        target_tolerance : float
+            Acceptable deviation from target rate (default: 0.15)
+        initial_step_size : float
+            Initial step size to start tuning from
+        max_attempts : int
+            Maximum number of tuning attempts
+        theta : tensor
+            The theta to use for tuning (optional, defaults to initialized theta)
+        """
+        if theta is None:
+            theta = self.initialize()
+        else:
+            theta = theta.clone()  # Don't modify the input theta
+        
+        self.dt = initial_step_size
+        step_min = 1e-6
+        step_max = 1.0
+        best_dt = self.dt
+        best_rate_diff = float('inf')
+        
+        for attempt in range(max_attempts):
+            acceptance_count = 0
+            for _ in tqdm(range(n_tune_steps), desc=f"Tuning step size (attempt {attempt+1}/{max_attempts})"):
+                _, accepted, _ = self.metropolis_step(theta)
+                if accepted:
+                    acceptance_count += 1
+            
+            current_rate = acceptance_count / n_tune_steps
+            rate_diff = abs(current_rate - target_rate)
+            print(f"Step size: {self.dt:.6f}, Acceptance rate: {current_rate:.2%}")
+            
+            # Save best result so far
+            if rate_diff < best_rate_diff:
+                best_dt = self.dt
+                best_rate_diff = rate_diff
+            
+            # Check if current rate is acceptable
+            if abs(current_rate - target_rate) <= target_tolerance:
+                print(f"Found good step size: {self.dt:.6f}")
+                break
+            
+            # Binary search update
+            if current_rate > target_rate:
+                step_min = self.dt
+                self.dt = min((self.dt + step_max) / 2, step_max)
+            else:
+                step_max = self.dt
+                self.dt = max((self.dt + step_min) / 2, step_min)
+        
+        # Use best found step size if we didn't converge
+        if abs(current_rate - target_rate) > target_tolerance:
+            print(f"Using best found step size: {best_dt:.6f}")
+            self.dt = best_dt
+
     def thermalize(self):
         """
         Perform thermalization steps to equilibrate the system.
@@ -200,6 +264,20 @@ class HMC_U1_FT:
         tuple
             The final field configuration, list of plaquette values, and acceptance rate.
         """
+        
+        # Initial thermalization to get away from cold start
+        theta = self.initialize()
+        n_initial_therm = self.n_thermalization_steps
+        
+        print(">>> Initial thermalization...")
+        for _ in tqdm(range(n_initial_therm), desc="Initial thermalization"):
+            theta, _, _ = self.metropolis_step(theta)
+        
+        # Tune step size before thermalization
+        print("Tuning step size before thermalization...")
+        self.tune_step_size(theta=theta)
+        print(f"Using step size: {self.dt:.6f} for thermalization")
+        
         self.step_count = 0
         theta_new = self.initialize()
         plaq_ls = []

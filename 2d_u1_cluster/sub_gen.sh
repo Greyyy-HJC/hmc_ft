@@ -7,7 +7,7 @@
 #PBS -l select=1:ncpus=1 
 #PBS -j oe
 #PBS -l walltime=02:00:00
-#PBS -o /lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster/log/gen_L64_b4.log
+#PBS -o /lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster/log/gen_L64_b10.log
 
 # switch to the submit directory
 WORKDIR=/lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster
@@ -36,7 +36,7 @@ python --version
 echo "Python path: $(which python)"
 
 # run conf_gen.py
-python conf_gen.py --lattice_size 64 --beta 4.0 --n_thermalization 200 --store_interval 5 --n_configs 10240
+python conf_gen.py --lattice_size 64 --beta 10 --n_thermalization 200 --store_interval 5 --n_configs 10240
 
 # calculate total time
 end_time=$(date +"%Y-%m-%d %H:%M:%S")

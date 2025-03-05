@@ -1,0 +1,14 @@
+ 
+>>> PBS_NODEFILE content:
+i147.lcrc.anl.gov
+1n*1t
+Start time: 2025-03-04 19:22:37
+Python 3.10.0
+Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
+Loaded data shape: torch.Size([10240, 2, 64, 64])
+Training data shape: torch.Size([819, 2, 64, 64])
+Testing data shape: torch.Size([205, 2, 64, 64])
+
+>>> Training the model at beta =  3
+Training epochs:   0%|          | 0/16 [00:00<?, ?it/s]
+Epoch 1/16:   0%|          | 0/26 [00:00<?, ?it/s][A=>> PBS: job killed: walltime 43297 exceeded limit 43200

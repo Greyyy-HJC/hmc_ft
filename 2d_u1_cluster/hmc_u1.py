@@ -96,7 +96,7 @@ class HMC_U1:
         else:
             return theta, False, H_old.item()
 
-    def tune_step_size(self, n_tune_steps=100, target_rate=0.65, target_tolerance=0.15, initial_step_size=0.2, max_attempts=10, theta=None):
+    def tune_step_size(self, n_tune_steps=1000, target_rate=0.65, target_tolerance=0.15, initial_step_size=0.2, max_attempts=10, theta=None):
         """
         Tune the step size to achieve desired acceptance rate using binary search.
         
@@ -166,7 +166,7 @@ class HMC_U1:
         """
         # Initial thermalization to get away from cold start
         theta = self.initialize()
-        n_initial_therm = min(50, self.n_thermalization_steps // 4)
+        n_initial_therm = self.n_thermalization_steps
         
         print(">>> Initial thermalization...")
         for _ in tqdm(range(n_initial_therm), desc="Initial thermalization"):
