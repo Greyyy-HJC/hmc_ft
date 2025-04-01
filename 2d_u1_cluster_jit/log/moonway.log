@@ -1,0 +1,93 @@
+PyTorch version: 2.5.1+cu124
+CUDA available: True
+CUDA devices: 1
+CUDA device name: NVIDIA GeForce RTX 3060
+Lattice size: 8x8
+Number of subsets: 8
+Check Jacobian: True
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+Loaded data shape: torch.Size([2048, 2, 8, 8])
+Training data shape: torch.Size([1638, 2, 8, 8])
+Testing data shape: torch.Size([410, 2, 8, 8])
+
+>>> Training the model at beta =  3
+
+>>> Training the model at beta = 3
+
+Training epochs:   0%|          | 0/4 [00:00<?, ?it/s]
+Epoch 1/4:   0%|          | 0/13 [00:00<?, ?it/s][A
+Epoch 1/4:   8%|▊         | 1/13 [00:33<06:38, 33.19s/it][A
+Epoch 1/4:  15%|█▌        | 2/13 [00:58<05:14, 28.63s/it][A
+Epoch 1/4:  23%|██▎       | 3/13 [01:23<04:31, 27.11s/it][A
+Epoch 1/4:  31%|███       | 4/13 [01:49<03:58, 26.50s/it][A
+Epoch 1/4:  38%|███▊      | 5/13 [02:14<03:28, 26.11s/it][A
+Epoch 1/4:  46%|████▌     | 6/13 [02:40<03:01, 25.91s/it][A
+Epoch 1/4:  54%|█████▍    | 7/13 [03:06<02:35, 25.89s/it][A
+Epoch 1/4:  62%|██████▏   | 8/13 [03:31<02:08, 25.77s/it][A
+Epoch 1/4:  69%|██████▉   | 9/13 [03:57<01:43, 25.77s/it][A
+Epoch 1/4:  77%|███████▋  | 10/13 [04:23<01:17, 25.76s/it][A
+Epoch 1/4:  85%|████████▍ | 11/13 [04:48<00:51, 25.73s/it][A
+Epoch 1/4:  92%|█████████▏| 12/13 [05:14<00:25, 25.73s/it][A
+Epoch 1/4: 100%|██████████| 13/13 [05:35<00:00, 24.37s/it][AEpoch 1/4: 100%|██████████| 13/13 [05:35<00:00, 25.84s/it]
+
+Jacobian log det (manual): -3.60e-01, (autograd): -3.60e-01
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -1.68e+00, (autograd): -1.68e+00
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -3.16e+00, (autograd): -3.16e+00
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -5.50e+00, (autograd): -5.50e+00
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -6.68e+00, (autograd): -6.68e+00
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -9.43e+00, (autograd): -9.43e+00
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -1.17e+01, (autograd): -1.17e+01
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -1.40e+01, (autograd): -1.40e+01
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -1.30e+01, (autograd): -1.30e+01
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -1.96e+01, (autograd): -1.96e+01
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -2.31e+01, (autograd): -2.31e+01
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -3.02e+01, (autograd): -3.02e+01
+>>> Jacobian is all good!
+
+Jacobian log det (manual): -3.10e+01, (autograd): -3.10e+01
+>>> Jacobian is all good!
+
+Evaluating:   0%|          | 0/4 [00:00<?, ?it/s][AEvaluating:   0%|          | 0/4 [00:13<?, ?it/s]
+Training epochs:   0%|          | 0/4 [05:49<?, ?it/s]
+
+Jacobian log det (manual): -3.24e+01, (autograd): -3.24e+01
+>>> Jacobian is all good!
+Traceback (most recent call last):
+  File "/home/jinchen/git/anl/hmc_ft/2d_u1_cluster_jit/train.py", line 79, in <module>
+    nn_ft.train(train_data, test_data, train_beta, n_epochs=args.n_epochs, batch_size=args.batch_size)
+  File "/home/jinchen/git/anl/hmc_ft/2d_u1_cluster_jit/field_trans.py", line 478, in train
+    loss = self.evaluate_step(batch)
+  File "/home/jinchen/git/anl/hmc_ft/2d_u1_cluster_jit/field_trans.py", line 427, in evaluate_step
+    loss = self.loss_fn(theta_ori)
+  File "/home/jinchen/git/anl/hmc_ft/2d_u1_cluster_jit/field_trans.py", line 369, in loss_fn
+    force_new = self.compute_force(theta_new, self.train_beta, transformed=True)
+  File "/home/jinchen/git/anl/hmc_ft/2d_u1_cluster_jit/field_trans.py", line 357, in compute_force
+    grad = torch.autograd.grad(total_action[i], theta, create_graph=True)[0]
+  File "/home/jinchen/miniconda3/envs/lat/lib/python3.9/site-packages/torch/autograd/__init__.py", line 496, in grad
+    result = _engine_run_backward(
+  File "/home/jinchen/miniconda3/envs/lat/lib/python3.9/site-packages/torch/autograd/graph.py", line 825, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.00 MiB. GPU 0 has a total capacity of 11.76 GiB of which 60.62 MiB is free. Including non-PyTorch memory, this process has 11.57 GiB memory in use. Of the allocated memory 11.41 GiB is allocated by PyTorch, and 1.25 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
