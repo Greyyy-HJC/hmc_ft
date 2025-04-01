@@ -1,0 +1,18 @@
+ 
+>>> PBS_NODEFILE content:
+i623.lcrc.anl.gov
+1n*1t
+Start time: 2025-04-01 13:02:21
+Python 3.10.0
+Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
+Loaded data shape: torch.Size([2048, 2, 8, 8])
+Training data shape: torch.Size([819, 2, 8, 8])
+Testing data shape: torch.Size([205, 2, 8, 8])
+
+>>> Training the model at beta =  3
+Training epochs:   0%|          | 0/4 [00:00<?, ?it/s]
+Epoch 1/4:   0%|          | 0/7 [00:00<?, ?it/s][A
+Epoch 1/4:  14%|█▍        | 1/7 [01:30<09:01, 90.30s/it][A
+Epoch 1/4:  29%|██▊       | 2/7 [03:06<07:49, 93.94s/it][A
+Epoch 1/4:  43%|████▎     | 3/7 [04:35<06:05, 91.42s/it][A
+Epoch 1/4:  57%|█████▋    | 4/7 [06:03<04:30, 90.22s/it][A

@@ -1,0 +1,27 @@
+ 
+>>> PBS_NODEFILE content:
+i661.lcrc.anl.gov
+1n*1t
+Start time: 2025-03-18 17:51:24
+Python 3.10.0
+Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
+Compiling models with TorchScript...
+TorchScript compilation completed
+Loaded data shape: torch.Size([2048, 2, 8, 8])
+Training data shape: torch.Size([102, 2, 8, 8])
+Testing data shape: torch.Size([26, 2, 8, 8])
+
+>>> Training the model at beta =  3
+Training epochs:   0%|          | 0/4 [00:00<?, ?it/s]
+Epoch 1/4:   0%|          | 0/1 [00:00<?, ?it/s][A
+Epoch 1/4: 100%|██████████| 1/1 [01:23<00:00, 83.97s/it][A
+                                                        [AJacobian log determinant difference = -1.04
+Jacobian is not correct!
+
+Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
+Evaluating: 100%|██████████| 1/1 [00:23<00:00, 23.61s/it][A
+                                                         [ATraining epochs:  25%|██▌       | 1/4 [01:49<05:27, 109.03s/it]Jacobian log determinant difference = -0.74
+Jacobian is not correct!
+Epoch 1/4 - Train Loss: 37.765797 - Test Loss: 22.196255
+
+Epoch 2/4:   0%|          | 0/1 [00:00<?, ?it/s][A

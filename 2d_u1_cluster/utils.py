@@ -355,3 +355,4 @@ def plot_results(beta, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians
     print(">>> Std of mean plaq: ", np.std(plaq_ls) / np.sqrt(len(plaq_ls)))
     
     return fig
+

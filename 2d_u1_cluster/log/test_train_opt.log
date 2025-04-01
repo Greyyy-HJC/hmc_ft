@@ -1,0 +1,60 @@
+ 
+>>> PBS_NODEFILE content:
+i615.lcrc.anl.gov
+1n*1t
+Start time: 2025-03-18 21:43:57
+Python 3.10.0
+Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
+>>> PBS_NODEFILE content:
+i615.lcrc.anl.gov
+Start time: 2025-03-19T02:44:14
+Python 3.10.0
+Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
+PyTorch version: 2.5.1
+CUDA available: False
+Using CPU only
+Lattice size: 8x8
+Number of subsets: 8
+Check Jacobian: True
+Initializing field transformation...
+Using standard PyTorch model 0
+Using standard PyTorch model 1
+Using standard PyTorch model 2
+Using standard PyTorch model 3
+Using standard PyTorch model 4
+Using standard PyTorch model 5
+Using standard PyTorch model 6
+Using standard PyTorch model 7
+Loading data from dump/theta_ori_L8_beta3.npy
+Loaded data shape: torch.Size([2048, 2, 8, 8])
+Limited data to 128 samples for debugging
+Training data shape: torch.Size([102, 2, 8, 8])
+Testing data shape: torch.Size([26, 2, 8, 8])
+
+>>> Training the model at beta = 3
+Training epochs:   0%|          | 0/4 [00:00<?, ?it/s]
+Epoch 1/4
+
+Epoch 1/4:   0%|          | 0/1 [00:00<?, ?it/s][A
+Epoch 1/4: 100%|██████████| 1/1 [02:01<00:00, 121.40s/it][A
+                                                         [AJacobian log determinant by hand is 3.56e+00
+Jacobian log determinant by autograd is 3.56e+00
+Jacobian is all good
+Training complete. Average loss: 93.255577
+Evaluating model on test data...
+
+Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
+Evaluating: 100%|██████████| 1/1 [01:55<00:00, 115.86s/it][A
+                                                          [ATraining epochs:  25%|██▌       | 1/4 [03:57<11:52, 237.52s/it]Error in gradient calculation: element 0 of tensors does not require grad and does not have a grad_fn
+Jacobian log determinant by hand is 9.94e-01
+Jacobian log determinant by autograd is 9.94e-01
+Jacobian is all good
+Error in gradient calculation: element 0 of tensors does not require grad and does not have a grad_fn
+Evaluation complete. Test loss: 0.000000
+Epoch 1/4 - Train Loss: 93.255577 - Test Loss: 0.000000
+Saved best model checkpoint to models/best_model_L8_train_beta3.pt
+New best test loss: 0.000000
+
+Epoch 2/4
+
+Epoch 2/4:   0%|          | 0/1 [00:00<?, ?it/s][A
