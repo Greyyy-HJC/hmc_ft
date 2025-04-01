@@ -1,344 +1,0 @@
-
->>> PBS_NODEFILE content:
-i066.lcrc.anl.gov
-1n*1t
-Start time: 2025-03-18 20:50:54
-Python 3.10.0
-Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
-Loaded data shape: torch.Size([2048, 2, 8, 8])
-Training data shape: torch.Size([102, 2, 8, 8])
-Testing data shape: torch.Size([26, 2, 8, 8])
-
->>> Training the model at beta =  3
-
-Training epochs:   0%|          | 0/3 [00:00<?, ?it/s]
-
-Epoch 1/3:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Epoch 1/3: 100%|██████████| 1/1 [01:22<00:00, 82.87s/it][A
-
-                                                        [AJacobian log determinant by hand is -3.28e-01
-Jacobian log determinant by autograd is -3.28e-01
-Jacobian is all good
-
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Evaluating: 100%|██████████| 1/1 [00:23<00:00, 23.00s/it][A
-
-                                                         [A
-Training epochs:  33%|███▎      | 1/3 [01:47<03:34, 107.32s/it]Jacobian log determinant by hand is -5.18e-01
-Jacobian log determinant by autograd is -5.18e-01
-Jacobian is all good
-Epoch 1/3 - Train Loss: 37.023830 - Test Loss: 21.695948
-
-
-Epoch 2/3:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Epoch 2/3: 100%|██████████| 1/1 [03:15<00:00, 195.52s/it][A
-
-                                                         [AJacobian log determinant by hand is -4.78e-01
-Jacobian log determinant by autograd is -4.78e-01
-Jacobian is all good
-
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Evaluating: 100%|██████████| 1/1 [00:23<00:00, 23.46s/it][A
-
-                                                         [A
-Training epochs:  67%|██████▋   | 2/3 [05:29<02:55, 175.12s/it]Jacobian log determinant by hand is -6.97e-01
-Jacobian log determinant by autograd is -6.97e-01
-Jacobian is all good
-Epoch 2/3 - Train Loss: 36.678616 - Test Loss: 21.470217
-
-
-Epoch 3/3:   0%|          | 0/1 [00:00<?, ?it/s][A 
-
-
-
->>> PBS_NODEFILE content:
-i290.lcrc.anl.gov
-1n*1t
-Start time: 2025-03-18 20:58:34
-Python 3.10.0
-Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
-Loaded data shape: torch.Size([2048, 2, 8, 8])
-Training data shape: torch.Size([102, 2, 8, 8])
-Testing data shape: torch.Size([26, 2, 8, 8])
-
->>> Training the model at beta =  3
-
-Training epochs:   0%|          | 0/4 [00:00<?, ?it/s]
-
-Epoch 1/4:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Epoch 1/4: 100%|██████████| 1/1 [01:29<00:00, 89.04s/it][A
-
-                                                        [AJacobian log determinant by hand is -4.89e-01
-Jacobian log determinant by autograd is -4.89e-01
-Jacobian is all good
-
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Evaluating: 100%|██████████| 1/1 [00:23<00:00, 23.73s/it][A
-
-                                                         [A
-Training epochs:  25%|██▌       | 1/4 [01:54<05:42, 114.14s/it]Jacobian log determinant by hand is -7.00e-01
-Jacobian log determinant by autograd is -7.00e-01
-Jacobian is all good
-Epoch 1/4 - Train Loss: 36.771854 - Test Loss: 21.507366
-
-
-Epoch 2/4:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Epoch 2/4: 100%|██████████| 1/1 [03:16<00:00, 196.32s/it][A
-
-                                                         [AJacobian log determinant by hand is -6.59e-01
-Jacobian log determinant by autograd is -6.59e-01
-Jacobian is all good
-
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Evaluating: 100%|██████████| 1/1 [00:23<00:00, 23.08s/it][A
-
-                                                         [A
-Training epochs:  50%|█████     | 2/4 [05:37<05:56, 178.28s/it]Jacobian log determinant by hand is -9.05e-01
-Jacobian log determinant by autograd is -9.05e-01
-Jacobian is all good
-Epoch 2/4 - Train Loss: 36.387928 - Test Loss: 21.255583
-
-
-Epoch 3/4:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Epoch 3/4: 100%|██████████| 1/1 [03:12<00:00, 192.91s/it][A
-
-                                                         [AJacobian log determinant by hand is -9.76e-01
-Jacobian log determinant by autograd is -9.76e-01
-Jacobian is all good
-
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Evaluating: 100%|██████████| 1/1 [00:23<00:00, 23.94s/it][A
-
-                                                         [A
-Training epochs:  75%|███████▌  | 3/4 [09:17<03:17, 197.61s/it]Jacobian log determinant by hand is -1.11e+00
-Jacobian log determinant by autograd is -1.11e+00
-Jacobian is all good
-Epoch 3/4 - Train Loss: 35.999229 - Test Loss: 21.000122
-
-
-Epoch 4/4:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Epoch 4/4: 100%|██████████| 1/1 [03:17<00:00, 197.37s/it][A
-
-                                                         [AJacobian log determinant by hand is -1.05e+00
-Jacobian log determinant by autograd is -1.05e+00
-Jacobian is all good
-
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-
-Evaluating: 100%|██████████| 1/1 [00:23<00:00, 23.72s/it][A
-
-                                                         [A
-Training epochs: 100%|██████████| 4/4 [13:02<00:00, 208.37s/it]
-Training epochs: 100%|██████████| 4/4 [13:02<00:00, 195.70s/it]
-Jacobian log determinant by hand is -1.33e+00
-Jacobian log determinant by autograd is -1.33e+00
-Jacobian is all good
-Epoch 4/4 - Train Loss: 35.604263 - Test Loss: 20.739876
-Loaded best models from epoch 3 with loss 20.739876
-End time: 2025-03-18 21:12:09
-Total time: 0h 13m 35s
-
-
-
-
-
-
-
-
- 
->>> PBS_NODEFILE content:
-i615.lcrc.anl.gov
-1n*1t
-Start time: 2025-03-18 21:52:17
-Python 3.10.0
-Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
-Loaded data shape: torch.Size([2048, 2, 8, 8])
-Training data shape: torch.Size([819, 2, 8, 8])
-Testing data shape: torch.Size([205, 2, 8, 8])
-
->>> Training the model at beta =  3
-Training epochs:   0%|          | 0/4 [00:00<?, ?it/s]
-Epoch 1/4:   0%|          | 0/7 [00:00<?, ?it/s][A
-Epoch 1/4:  14%|█▍        | 1/7 [01:43<10:23, 103.97s/it][A
-Epoch 1/4:  29%|██▊       | 2/7 [03:29<08:43, 104.60s/it][A
-Epoch 1/4:  43%|████▎     | 3/7 [05:14<07:00, 105.18s/it][A
-Epoch 1/4:  57%|█████▋    | 4/7 [07:01<05:17, 105.94s/it][A
-Epoch 1/4:  71%|███████▏  | 5/7 [08:49<03:33, 106.51s/it][A
-Epoch 1/4:  86%|████████▌ | 6/7 [10:36<01:46, 106.51s/it][A
-Epoch 1/4: 100%|██████████| 7/7 [11:05<00:00, 81.24s/it] [A
-                                                        [AJacobian log determinant by hand is -4.37e-01
-Jacobian log determinant by autograd is -4.37e-01
-Jacobian is all good
-Jacobian log determinant by hand is -7.11e-01
-Jacobian log determinant by autograd is -7.11e-01
-Jacobian is all good
-Jacobian log determinant by hand is -8.88e-01
-Jacobian log determinant by autograd is -8.88e-01
-Jacobian is all good
-Jacobian log determinant by hand is -1.04e+00
-Jacobian log determinant by autograd is -1.04e+00
-Jacobian is all good
-Jacobian log determinant by hand is -1.40e+00
-Jacobian log determinant by autograd is -1.40e+00
-Jacobian is all good
-Jacobian log determinant by hand is -1.72e+00
-Jacobian log determinant by autograd is -1.72e+00
-Jacobian is all good
-Jacobian log determinant by hand is -2.00e+00
-Jacobian log determinant by autograd is -2.00e+00
-Jacobian is all good
-
-Evaluating:   0%|          | 0/2 [00:00<?, ?it/s][A
-Evaluating:  50%|█████     | 1/2 [03:50<03:50, 230.55s/it][A
-Evaluating: 100%|██████████| 2/2 [04:15<00:00, 109.79s/it][A
-                                                          [ATraining epochs:  25%|██▌       | 1/4 [15:25<46:15, 925.00s/it]Jacobian log determinant by hand is -2.21e+00
-Jacobian log determinant by autograd is -2.21e+00
-Jacobian is all good
-Jacobian log determinant by hand is -2.36e+00
-Jacobian log determinant by autograd is -2.36e+00
-Jacobian is all good
-Epoch 1/4 - Train Loss: 37.013627 - Test Loss: 34.075392
-
-Epoch 2/4:   0%|          | 0/7 [00:00<?, ?it/s][A
-Epoch 2/4:  14%|█▍        | 1/7 [04:48<28:50, 288.39s/it][A
-Epoch 2/4:  29%|██▊       | 2/7 [06:39<15:20, 184.02s/it][A
-Epoch 2/4:  43%|████▎     | 3/7 [08:32<10:06, 151.58s/it][A
-Epoch 2/4:  57%|█████▋    | 4/7 [10:20<06:43, 134.60s/it][A
-Epoch 2/4:  71%|███████▏  | 5/7 [12:07<04:09, 124.67s/it][A
-Epoch 2/4:  86%|████████▌ | 6/7 [13:55<01:58, 118.83s/it][A
-Epoch 2/4: 100%|██████████| 7/7 [14:24<00:00, 89.47s/it] [A
-                                                        [AJacobian log determinant by hand is -2.49e+00
-Jacobian log determinant by autograd is -2.49e+00
-Jacobian is all good
-Jacobian log determinant by hand is -2.50e+00
-Jacobian log determinant by autograd is -2.50e+00
-Jacobian is all good
-Jacobian log determinant by hand is -2.85e+00
-Jacobian log determinant by autograd is -2.85e+00
-Jacobian is all good
-Jacobian log determinant by hand is -2.93e+00
-Jacobian log determinant by autograd is -2.93e+00
-Jacobian is all good
-Jacobian log determinant by hand is -3.51e+00
-Jacobian log determinant by autograd is -3.51e+00
-Jacobian is all good
-Jacobian log determinant by hand is -3.17e+00
-Jacobian log determinant by autograd is -3.17e+00
-Jacobian is all good
-Jacobian log determinant by hand is -3.78e+00
-Jacobian log determinant by autograd is -3.78e+00
-Jacobian is all good
-
-Evaluating:   0%|          | 0/2 [00:00<?, ?it/s][A
-Evaluating:  50%|█████     | 1/2 [03:45<03:45, 225.93s/it][A
-Evaluating: 100%|██████████| 2/2 [04:10<00:00, 107.47s/it][A
-                                                          [ATraining epochs:  50%|█████     | 2/4 [34:07<34:42, 1041.20s/it]Jacobian log determinant by hand is -4.57e+00
-Jacobian log determinant by autograd is -4.57e+00
-Jacobian is all good
-Jacobian log determinant by hand is -4.80e+00
-Jacobian log determinant by autograd is -4.80e+00
-Jacobian is all good
-Epoch 2/4 - Train Loss: 33.390966 - Test Loss: 30.177303
-
-Epoch 3/4:   0%|          | 0/7 [00:00<?, ?it/s][A
-Epoch 3/4:  14%|█▍        | 1/7 [04:43<28:20, 283.49s/it][A
-Epoch 3/4:  29%|██▊       | 2/7 [06:31<15:02, 180.42s/it][A
-Epoch 3/4:  43%|████▎     | 3/7 [08:20<09:50, 147.71s/it][A
-Epoch 3/4:  57%|█████▋    | 4/7 [10:11<06:39, 133.16s/it][A
-Epoch 3/4:  71%|███████▏  | 5/7 [12:00<04:08, 124.40s/it][A
-Epoch 3/4:  86%|████████▌ | 6/7 [13:54<02:00, 120.91s/it][A
-Epoch 3/4: 100%|██████████| 7/7 [14:26<00:00, 91.73s/it] [A
-                                                        [AJacobian log determinant by hand is -4.35e+00
-Jacobian log determinant by autograd is -4.35e+00
-Jacobian is all good
-Jacobian log determinant by hand is -5.48e+00
-Jacobian log determinant by autograd is -5.48e+00
-Jacobian is all good
-Jacobian log determinant by hand is -5.13e+00
-Jacobian log determinant by autograd is -5.13e+00
-Jacobian is all good
-Jacobian log determinant by hand is -6.17e+00
-Jacobian log determinant by autograd is -6.17e+00
-Jacobian is all good
-Jacobian log determinant by hand is -5.72e+00
-Jacobian log determinant by autograd is -5.72e+00
-Jacobian is all good
-Jacobian log determinant by hand is -5.89e+00
-Jacobian log determinant by autograd is -5.89e+00
-Jacobian is all good
-Jacobian log determinant by hand is -7.21e+00
-Jacobian log determinant by autograd is -7.21e+00
-Jacobian is all good
-
-Evaluating:   0%|          | 0/2 [00:00<?, ?it/s][A
-Evaluating:  50%|█████     | 1/2 [03:48<03:48, 228.96s/it][A
-Evaluating: 100%|██████████| 2/2 [04:13<00:00, 108.95s/it][A
-                                                          [ATraining epochs:  75%|███████▌  | 3/4 [52:55<18:00, 1080.62s/it]Jacobian log determinant by hand is -8.08e+00
-Jacobian log determinant by autograd is -8.08e+00
-Jacobian is all good
-Jacobian log determinant by hand is -8.40e+00
-Jacobian log determinant by autograd is -8.40e+00
-Jacobian is all good
-Epoch 3/4 - Train Loss: 28.845459 - Test Loss: 25.142928
-
-Epoch 4/4:   0%|          | 0/7 [00:00<?, ?it/s][A
-Epoch 4/4:  14%|█▍        | 1/7 [04:46<28:41, 286.91s/it][A
-Epoch 4/4:  29%|██▊       | 2/7 [06:38<15:17, 183.55s/it][A
-Epoch 4/4:  43%|████▎     | 3/7 [08:31<10:05, 151.38s/it][A
-Epoch 4/4:  57%|█████▋    | 4/7 [10:24<06:48, 136.20s/it][A
-Epoch 4/4:  71%|███████▏  | 5/7 [12:17<04:15, 127.81s/it][A
-Epoch 4/4:  86%|████████▌ | 6/7 [14:10<02:03, 123.06s/it][A
-Epoch 4/4: 100%|██████████| 7/7 [14:41<00:00, 92.67s/it] [A
-                                                        [AJacobian log determinant by hand is -8.49e+00
-Jacobian log determinant by autograd is -8.49e+00
-Jacobian is all good
-Jacobian log determinant by hand is -9.07e+00
-Jacobian log determinant by autograd is -9.07e+00
-Jacobian is all good
-Jacobian log determinant by hand is -9.68e+00
-Jacobian log determinant by autograd is -9.68e+00
-Jacobian is all good
-Jacobian log determinant by hand is -8.49e+00
-Jacobian log determinant by autograd is -8.49e+00
-Jacobian is all good
-Jacobian log determinant by hand is -1.12e+01
-Jacobian log determinant by autograd is -1.12e+01
-Jacobian is all good
-Jacobian log determinant by hand is -1.23e+01
-Jacobian log determinant by autograd is -1.23e+01
-Jacobian is all good
-Jacobian log determinant by hand is -1.11e+01
-Jacobian log determinant by autograd is -1.11e+01
-Jacobian is all good
-
-Evaluating:   0%|          | 0/2 [00:00<?, ?it/s][A
-Evaluating:  50%|█████     | 1/2 [03:50<03:50, 230.47s/it][A
-Evaluating: 100%|██████████| 2/2 [04:13<00:00, 108.73s/it][A
-                                                          [ATraining epochs: 100%|██████████| 4/4 [1:11:57<00:00, 1105.14s/it]Training epochs: 100%|██████████| 4/4 [1:11:57<00:00, 1079.45s/it]
-Jacobian log determinant by hand is -1.33e+01
-Jacobian log determinant by autograd is -1.33e+01
-Jacobian is all good
-Jacobian log determinant by hand is -1.38e+01
-Jacobian log determinant by autograd is -1.38e+01
-Jacobian is all good
-Epoch 4/4 - Train Loss: 23.052161 - Test Loss: 19.156638
-Loaded best models from epoch 3 with loss 19.156638
-End time: 2025-03-18 23:04:43
-Total time: 1h 12m 26s

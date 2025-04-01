@@ -5,10 +5,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 import torch.autograd.functional as F
+import warnings
+import os
+import logging
+
+# Suppress PyTorch warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="torch")
+warnings.filterwarnings("ignore", category=UserWarning, module="torch._dynamo")
+
+# Set environment variable to control PyTorch log level
+os.environ["TORCH_LOGS"] = "ERROR"
+os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
+
+# Configure PyTorch logger, redirect to file
+torch_logger = logging.getLogger("torch")
+torch_logger.setLevel(logging.ERROR)  # Only show error level logs
+# Prevent log propagation to root logger, avoid displaying in console
+torch_logger.propagate = False
+
+
 
 from utils import plaq_from_field_batch, rect_from_field_batch, get_field_mask, get_plaq_mask, get_rect_mask
 from cnn_model import jointCNN
-
 
 class FieldTransformation:
     """Neural network based field transformation"""
@@ -18,7 +36,7 @@ class FieldTransformation:
         self.n_subsets = n_subsets
         self.if_check_jac = if_check_jac
         self.num_workers = num_workers
-        self.train_beta = None  # Will be set during training
+        self.train_beta = None
         
         # Create n_subsets independent models for each subset
         self.models = nn.ModuleList([jointCNN().to(device) for _ in range(n_subsets)])
@@ -34,6 +52,42 @@ class FieldTransformation:
             )
             for optimizer in self.optimizers
         ]
+        
+        # Use torch.compile to optimize compute-intensive functions
+        self._init_compiled_functions()
+
+    def _init_compiled_functions(self):
+        """Initialize functions optimized by torch.compile"""
+        if hasattr(torch, 'compile'):  # Ensure PyTorch version supports compile
+            try:
+                # Only compile compute-intensive functions with safer backend option
+                # Use 'eager' backend and configure for minimal logs
+                compile_options = {
+                    "backend": "eager",     # Simple backend, avoid C++ compilation errors
+                    "fullgraph": False,     # Do not require full graph compilation
+                    "dynamic": True,        # Allow dynamic shapes, reduce recompilation warnings
+                }
+                
+                print("Trying to use torch.compile for optimized computation...")
+                self.forward_compiled = torch.compile(self.forward, **compile_options)
+                self.ft_phase_compiled = torch.compile(self.ft_phase, **compile_options)
+                self.compute_jac_logdet_compiled = torch.compile(self.compute_jac_logdet, **compile_options)
+                self.compute_action_compiled = torch.compile(self.compute_action, **compile_options)
+                print("Successfully initialized torch.compile")
+            except Exception as e:
+                print(f"Warning: torch.compile initialization failed: {e}")
+                print("Falling back to standard functions")
+                self.forward_compiled = self.forward
+                self.ft_phase_compiled = self.ft_phase
+                self.compute_jac_logdet_compiled = self.compute_jac_logdet
+                self.compute_action_compiled = self.compute_action
+        else:
+            # If PyTorch version does not support compile, use standard functions
+            self.forward_compiled = self.forward
+            self.ft_phase_compiled = self.ft_phase
+            self.compute_jac_logdet_compiled = self.compute_jac_logdet
+            self.compute_action_compiled = self.compute_action
+            print("torch.compile not available, using standard functions")
 
     def compute_K0_K1(self, theta, index):
         """
@@ -60,27 +114,10 @@ class FieldTransformation:
         rect_features = torch.cat([rect_sin_feature, rect_cos_feature], dim=1)
         
         # Use joint model to generate K0 and K1
+        # Shape of K0: [batch_size, 4, L, L], Shape of K1: [batch_size, 8, L, L]
         K0, K1 = self.models[index](plaq_features, rect_features)
         
         return K0, K1
-
-    def compute_K0(self, theta, index):
-        """
-        Compute K0 for given theta and subset index
-        Input: theta with shape [batch_size, 2, L, L]
-        Output: K0 with shape [batch_size, 4, L, L]
-        """
-        K0, _ = self.compute_K0_K1(theta, index)
-        return K0
-
-    def compute_K1(self, theta, index):
-        """
-        Compute K1 for given theta and subset index
-        Input: theta with shape [batch_size, 4, L, L]
-        Output: K1 with shape [batch_size, 4, L, L]
-        """
-        _, K1 = self.compute_K0_K1(theta, index)
-        return K1
 
     def ft_phase(self, theta, index):
         """
@@ -98,7 +135,7 @@ class FieldTransformation:
         
         sin_plaq_stack = torch.stack([sin_plaq_dir0_1, sin_plaq_dir0_2, sin_plaq_dir1_1, sin_plaq_dir1_2], dim=1) # [batch_size, 4, L, L]
         
-        K0 = self.compute_K0(theta, index) # [batch_size, 4, L, L]
+        K0, K1 = self.compute_K0_K1(theta, index) # [batch_size, 4, L, L], [batch_size, 8, L, L]
         
         # Calculate plaquette phase contribution
         temp = K0 * sin_plaq_stack
@@ -128,7 +165,6 @@ class FieldTransformation:
             sin_rect_dir1_1, sin_rect_dir1_2, sin_rect_dir1_3, sin_rect_dir1_4
         ], dim=1) # [batch_size, 8, L, L]
         
-        K1 = self.compute_K1(theta, index) # [batch_size, 8, L, L]
         temp = K1 * sin_rect_stack
         ft_phase_rect = torch.stack([
             temp[:, 0] + temp[:, 1] + temp[:, 2] + temp[:, 3], # dir 0
@@ -154,28 +190,13 @@ class FieldTransformation:
         
         # Apply transformation for each subset sequentially
         for index in range(self.n_subsets):
-            theta_curr = theta_curr + self.ft_phase(theta_curr, index)
+            theta_curr = theta_curr + self.ft_phase_compiled(theta_curr, index)
             
         return theta_curr
 
     def field_transformation(self, theta):
-        """
-        Field transformation function for HMC.
-        
-        Args:
-            theta: Input field configuration with shape [2, L, L]
-            
-        Returns:
-            Transformed field configuration with shape [2, L, L]
-        """
-        # Add batch dimension for single input
-        theta_batch = theta.unsqueeze(0)
-        
-        # Apply forward transformation
-        theta_transformed = self.forward(theta_batch)
-        
-        # Remove batch dimension
-        return theta_transformed.squeeze(0)
+        """Field transformation function for HMC (single input)"""
+        return self.forward_compiled(theta.unsqueeze(0)).squeeze(0)
 
     def inverse(self, theta):
         """
@@ -192,7 +213,7 @@ class FieldTransformation:
             # Fixed-point iteration to find inverse transformation for this subset
             for i in range(max_iter):
                 # Compute the phase for current iteration
-                inv_phase = -self.ft_phase(theta_iter, index)
+                inv_phase = -self.ft_phase_compiled(theta_iter, index)
                 
                 # Update theta using the inverse phase
                 theta_next = theta_curr - inv_phase
@@ -239,8 +260,8 @@ class FieldTransformation:
                 cos_plaq_dir1_1, cos_plaq_dir1_2
             ], dim=1)  # [batch_size, 4, L, L]
             
-            # Get K0 coefficients
-            K0 = self.compute_K0(theta_curr, index)  # [batch_size, 4, L, L]
+            # Get K0, K1 coefficients
+            K0, K1 = self.compute_K0_K1(theta_curr, index) # [batch_size, 4, L, L], [batch_size, 8, L, L]
             
             # Calculate plaquette Jacobian contribution
             temp = K0 * cos_plaq_stack
@@ -266,9 +287,6 @@ class FieldTransformation:
                 cos_rect_dir1_1, cos_rect_dir1_2, cos_rect_dir1_3, cos_rect_dir1_4
             ], dim=1)  # [batch_size, 8, L, L]
             
-            # Get K1 coefficients
-            K1 = self.compute_K1(theta_curr, index)  # [batch_size, 8, L, L]
-            
             # Calculate rectangle Jacobian contribution
             temp = K1 * cos_rect_stack
             rect_jac_shift = torch.stack([
@@ -281,51 +299,20 @@ class FieldTransformation:
             log_det += torch.log(1 + plaq_jac_shift + rect_jac_shift).sum(dim=(1, 2, 3))
             
             # Update theta for next subset
-            theta_curr = theta_curr + self.ft_phase(theta_curr, index)
+            theta_curr = theta_curr + self.ft_phase_compiled(theta_curr, index)
         
         return log_det
     
     def compute_jac_logdet_autograd(self, theta):
-        """
-        Compute total log determinant of Jacobian using autograd
-        This is used for verification purposes
-        
-        Args:
-            theta: Field configuration with shape [batch_size, 2, L, L]
-            
-        Returns:
-            Log determinant of Jacobian
-        """
-        # Only take the first sample in batch to reduce computation
-        theta_curr = theta.clone()
-        theta_curr = theta_curr[0].unsqueeze(0)
-        
-        # Compute Jacobian matrix using autograd
-        jac = F.jacobian(self.forward, theta_curr)
-        
-        # Reshape to 2D matrix for determinant calculation
-        jac_2d = jac.reshape(theta_curr.shape[0], theta_curr.numel(), theta_curr.numel())
-        
-        # Compute log determinant
-        log_det = torch.logdet(jac_2d)
-
-        return log_det
+        """Compute Jacobian log determinant using autograd (for verification)"""
+        theta_single = theta[0].unsqueeze(0)  # Only take the first sample to reduce computation
+        jac = F.jacobian(self.forward_compiled, theta_single)
+        jac_2d = jac.reshape(theta_single.shape[0], theta_single.numel(), theta_single.numel())
+        return torch.logdet(jac_2d)
     
     def compute_action(self, theta, beta):
-        """
-        Compute action for given configuration
-        
-        Args:
-            theta: Field configuration with shape [batch_size, 2, L, L]
-            beta: Coupling constant (float)
-            
-        Returns:
-            Action values with shape [batch_size]
-        """
-        # Calculate plaquettes
-        plaq = plaq_from_field_batch(theta)  # [batch_size, L, L]
-        
-        # Sum cosine of plaquettes over spatial dimensions
+        """Compute action for given configuration"""
+        plaq = plaq_from_field_batch(theta)
         total_action = torch.sum(torch.cos(plaq), dim=(1, 2))
         
         # Apply beta factor
@@ -339,17 +326,14 @@ class FieldTransformation:
             theta: Field configuration with shape [batch_size, 2, L, L]
             beta: Coupling constant (float)
             transformed: Whether to compute force in transformed space (bool)
-            
-        Returns:
-            Force with shape [batch_size, 2, L, L]
         """
         batch_size = theta.shape[0]
         
         if transformed:
-            # In transformed space, we need to account for the Jacobian
-            theta_ori = self.forward(theta)
-            action = self.compute_action(theta_ori, beta)
-            jac_logdet = self.compute_jac_logdet(theta)
+            # In transformed space, account for the Jacobian
+            theta_ori = self.forward_compiled(theta)
+            action = self.compute_action_compiled(theta_ori, beta)
+            jac_logdet = self.compute_jac_logdet_compiled(theta)
             
             # Verify Jacobian calculation if requested
             if self.if_check_jac:
@@ -358,18 +342,14 @@ class FieldTransformation:
                 diff = (jac_logdet_autograd[0] - jac_logdet[0]) / jac_logdet[0]
                 
                 if abs(diff.item()) > 1e-4:
-                    print(f"Jacobian log determinant difference = {diff:.2f}")
-                    print("Jacobian is not correct!")
+                    print(f"\nWarning: Jacobian log determinant difference = {diff:.2f}")
+                    print(">>> Jacobian is not correct!")
                 else:
-                    print(f"Jacobian log determinant by hand is {jac_logdet[0]:.2e}")
-                    print(f"Jacobian log determinant by autograd is {jac_logdet_autograd[0]:.2e}")
-                    print("Jacobian is all good")
-            
-            # Total action includes the Jacobian contribution
+                    print(f"\nJacobian log det (manual): {jac_logdet[0]:.2e}, (autograd): {jac_logdet_autograd[0]:.2e}")
+                    print(">>> Jacobian is all good!")
             total_action = action - jac_logdet
         else:
-            # In original space, just compute the action
-            total_action = self.compute_action(theta, beta)
+            total_action = self.compute_action_compiled(theta, beta)
         
         # Calculate force for each sample in batch
         force = torch.zeros_like(theta)
@@ -379,105 +359,38 @@ class FieldTransformation:
         
         return force  # shape: [batch_size, 2, L, L]
     
-    # JIT-compilable function for force norm calculation
-    @staticmethod
-    @torch.jit.script
-    def _compute_force_norm(force_new, force_ori, vol_sqrt: float, vol_fourth: float, vol_sixth: float, vol_eighth: float):
-        """
-        Compute the norm of force difference using multiple norms
+    def loss_fn(self, theta_ori):
+        """Compute loss function for training"""
+        # Transform original configuration to new configuration
+        theta_new = self.inverse(theta_ori)
         
-        Args:
-            force_new: Force in transformed space
-            force_ori: Force in original space
-            vol_sqrt: Square root of volume
-            vol_fourth: Fourth root of volume
-            vol_sixth: Sixth root of volume
-            vol_eighth: Eighth root of volume
-            
-        Returns:
-            Combined force norm loss
-        """
-        force_diff = force_new - force_ori
-        norm2 = torch.norm(force_diff, p=2) / vol_sqrt
-        norm4 = torch.norm(force_diff, p=4) / vol_fourth
-        norm6 = torch.norm(force_diff, p=6) / vol_sixth
-        norm8 = torch.norm(force_diff, p=8) / vol_eighth
+        # Compute forces in original and transformed spaces
+        force_ori = self.compute_force(theta_new, beta=1)
+        force_new = self.compute_force(theta_new, self.train_beta, transformed=True)
         
-        return norm2 + norm4 + norm6 + norm8
-    
-    def _create_jitted_train_step(self):
-        """Create a jitted version of the training step function"""
-        class ForwardModule(torch.nn.Module):
-            def __init__(self, parent):
-                super().__init__()
-                self.parent = parent
-            
-            def forward(self, theta_ori):
-                # Transform original configuration to new configuration
-                theta_new = self.parent.inverse(theta_ori)
+        # Compute loss using multiple norms
+        vol = self.L * self.L
+        loss = torch.norm(force_new - force_ori, p=2) / (vol**(1/2)) + \
+               torch.norm(force_new - force_ori, p=4) / (vol**(1/4)) + \
+               torch.norm(force_new - force_ori, p=6) / (vol**(1/6)) + \
+               torch.norm(force_new - force_ori, p=8) / (vol**(1/8))
                 
-                # Compute forces in original and transformed spaces
-                force_ori = self.parent.compute_force(theta_new, beta=1.0)
-                force_new = self.parent.compute_force(theta_new, self.parent.train_beta, transformed=True)
-                
-                return force_ori, force_new, theta_new
+        #TODO: try different loss, variance of force, etc.
         
-        return ForwardModule(self)
-    
+        return loss
+
+ 
+    #TODO: add jit on this train_step
     def train_step(self, theta_ori):
-        """
-        Perform a single training step for all subsets together
-        
-        Args:
-            theta_ori: Original field configuration
-            
-        Returns:
-            float: Loss value for this step
-        """
+        """Perform a single training step for all subsets together"""
         theta_ori = theta_ori.to(self.device)
         
-        # Initialize JIT compilation on first call
-        if not hasattr(self, '_jitted_forward'):
-            # Create forward module
-            forward_module = self._create_jitted_train_step()
-            
-            # Use trace to compile the forward pass
-            try:
-                # Only trace if we have compatible operations
-                self._use_jit = True
-                self._jitted_forward = torch.jit.trace(
-                    forward_module, 
-                    example_inputs=(theta_ori,)
-                )
-                print("Successfully JIT-compiled forward pass")
-            except Exception as e:
-                # Fall back to non-JIT if there are issues
-                self._use_jit = False
-                print(f"Failed to JIT-compile forward pass: {e}")
-                print("Falling back to regular execution")
-        
         with torch.autograd.set_grad_enabled(True):
+            # Compute loss
+            loss = self.loss_fn(theta_ori)
+            
             # Zero all gradients
             self._zero_all_grads()
-            
-            # Compute loss
-            if hasattr(self, '_use_jit') and self._use_jit:
-                # Use JIT-compiled forward pass if available
-                force_ori, force_new, theta_new = self._jitted_forward(theta_ori)
-            else:
-                # Use regular forward pass
-                theta_new = self.inverse(theta_ori)
-                force_ori = self.compute_force(theta_new, beta=1)
-                force_new = self.compute_force(theta_new, self.train_beta, transformed=True)
-            
-            # Compute loss using JIT-compiled function
-            vol = self.L * self.L
-            vol_sqrt = float(vol**(1/2))
-            vol_fourth = float(vol**(1/4))
-            vol_sixth = float(vol**(1/6))
-            vol_eighth = float(vol**(1/8))
-            
-            loss = self._compute_force_norm(force_new, force_ori, vol_sqrt, vol_fourth, vol_sixth, vol_eighth)
             
             # Backpropagate
             loss.backward()
@@ -540,13 +453,16 @@ class FieldTransformation:
             test_data, batch_size=batch_size, num_workers=self.num_workers
         )
         
+        # Print training information
+        print(f"\n>>> Training the model at beta = {train_beta}\n")
+        
         for epoch in tqdm(range(n_epochs), desc="Training epochs"):
             # Training phase
             self._set_models_mode(True)  # Set models to training mode
             
             epoch_losses = []
             
-            for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{n_epochs}", leave=False):
+            for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{n_epochs}"):
                 loss = self.train_step(batch)
                 epoch_losses.append(loss)
                 
@@ -558,7 +474,7 @@ class FieldTransformation:
             
             test_losses_epoch = []
             
-            for batch in tqdm(test_loader, desc="Evaluating", leave=False):
+            for batch in tqdm(test_loader, desc="Evaluating"):
                 loss = self.evaluate_step(batch)
                 test_losses_epoch.append(loss)
                 
@@ -658,31 +574,3 @@ class FieldTransformation:
             model.load_state_dict(checkpoint[f'model_state_dict_{i}'])
         
         print(f"Loaded best models from epoch {checkpoint['epoch']} with loss {checkpoint['loss']:.6f}")
-
-    def loss_fn(self, theta_ori):
-        """
-        Compute loss function for given configuration
-        
-        Args:
-            theta_ori: Original field configuration with shape [batch_size, 2, L, L]
-            
-        Returns:
-            Loss value (scalar)
-        """
-        # Transform original configuration to new configuration
-        theta_new = self.inverse(theta_ori)
-        
-        # Compute forces in original and transformed spaces
-        force_ori = self.compute_force(theta_new, beta=1)
-        force_new = self.compute_force(theta_new, self.train_beta, transformed=True)
-        
-        # Compute loss using JIT-compiled function
-        vol = self.L * self.L
-        vol_sqrt = float(vol**(1/2))
-        vol_fourth = float(vol**(1/4))
-        vol_sixth = float(vol**(1/6))
-        vol_eighth = float(vol**(1/8))
-        
-        loss = self._compute_force_norm(force_new, force_ori, vol_sqrt, vol_fourth, vol_sixth, vol_eighth)
-        
-        return loss 

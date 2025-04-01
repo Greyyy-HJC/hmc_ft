@@ -1,0 +1,32 @@
+ 
+>>> PBS_NODEFILE content:
+i508.lcrc.anl.gov
+1n*1t
+Start time: 2025-04-01 14:19:18
+Python 3.10.0
+Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
+PyTorch version: 2.5.1
+CUDA available: False
+Using CPU only
+Lattice size: 8x8
+Number of subsets: 8
+Check Jacobian: True
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+Loaded data shape: torch.Size([2048, 2, 8, 8])
+Training data shape: torch.Size([1638, 2, 8, 8])
+Testing data shape: torch.Size([410, 2, 8, 8])
+
+>>> Training the model at beta =  3
+
+>>> Training the model at beta = 3
+
+Training epochs:   0%|          | 0/4 [00:00<?, ?it/s]
+Epoch 1/4:   0%|          | 0/13 [00:00<?, ?it/s][A
+Epoch 1/4:   8%|▊         | 1/13 [01:22<16:26, 82.20s/it][A
+Epoch 1/4:  15%|█▌        | 2/13 [02:14<11:49, 64.49s/it][A
+Epoch 1/4:  23%|██▎       | 3/13 [03:05<09:46, 58.61s/it][A
+Epoch 1/4:  31%|███       | 4/13 [03:56<08:18, 55.42s/it][A
+Epoch 1/4:  38%|███▊      | 5/13 [04:47<07:11, 53.89s/it][A
+Epoch 1/4:  46%|████▌     | 6/13 [05:40<06:14, 53.46s/it][A
+Epoch 1/4:  54%|█████▍    | 7/13 [06:34<05:22, 53.68s/it][A

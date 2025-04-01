@@ -7,10 +7,10 @@
 #PBS -l select=1:ncpus=128:mpiprocs=1:ompthreads=128:mem=128gb
 #PBS -j oe
 #PBS -l walltime=12:00:00
-#PBS -o /lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster/log/train_L64_b3-3_no_comb_jit.log
+#PBS -o /lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster_jit/log/train_L64_b3-3_no_comb_jit.log
 
 # switch to the submit directory
-WORKDIR=/lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster
+WORKDIR=/lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster_jit
 cd $WORKDIR
 
 # output node info
@@ -36,7 +36,7 @@ python --version
 echo "Python path: $(which python)"
 
 # run train.py
-python train.py --lattice_size 64 --min_beta 3.0 --max_beta 3.0 --n_epochs 16 --batch_size 32 --n_subsets 8 --n_workers 32 --if_check_jac False --use_combined_model False --use_jit True
+python train.py --lattice_size 64 --min_beta 3.0 --max_beta 3.0 --n_epochs 16 --batch_size 32 --n_subsets 8 --n_workers 64 --if_check_jac False
 
 # calculate total time
 end_time=$(date +"%Y-%m-%d %H:%M:%S")

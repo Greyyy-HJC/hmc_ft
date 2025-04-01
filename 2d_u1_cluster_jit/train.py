@@ -1,8 +1,10 @@
 # %%
+import os
+import sys
 import torch
 import numpy as np
 import argparse
-from field_trans_jit import FieldTransformation
+from field_trans import FieldTransformation
 from torch.nn.parallel import DataParallel
 
 # Parse command line arguments
@@ -23,39 +25,47 @@ parser.add_argument('--n_workers', type=int, default=0,
                     help='Number of workers for training (default: 0)')
 parser.add_argument('--if_check_jac', type=bool, default=False,
                     help='Check Jacobian for training (default: False)')
-parser.add_argument('--use_combined_model', type=bool, default=True,
-                    help='Use combined model for training (default: True)')
 
 args = parser.parse_args()
 
+# Print info
+print(f"PyTorch version: {torch.__version__}")
+print(f"CUDA available: {torch.cuda.is_available()}")
+
+if torch.cuda.is_available():
+    print(f"CUDA devices: {torch.cuda.device_count()}")
+    print(f"CUDA device name: {torch.cuda.get_device_name(0)}")
+    device = 'cuda'
+else:
+    print("Using CPU only")
+    device = 'cpu'
+
 # Parameters
 lattice_size = args.lattice_size
+print(f"Lattice size: {lattice_size}x{lattice_size}")
+print(f"Number of subsets: {args.n_subsets}")
+print(f"Check Jacobian: {args.if_check_jac}")
 
-# Initialize device
-device = 'cpu'
+# Create output directories
+os.makedirs('models', exist_ok=True)
+os.makedirs('plots', exist_ok=True)
 
 # Set default type
 torch.set_default_dtype(torch.float32)
 
 # %%
 # initialize the field transformation
-nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=args.n_subsets, if_check_jac=args.if_check_jac, use_combined_model=args.use_combined_model, num_workers=args.n_workers)
+nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=args.n_subsets, if_check_jac=args.if_check_jac, num_workers=args.n_workers)
 
-#! Parallelize the models
-for i in range(len(nn_ft.plaq_models)):
-    nn_ft.plaq_models[i] = DataParallel(nn_ft.plaq_models[i])
-    nn_ft.rect_models[i] = DataParallel(nn_ft.rect_models[i])
-    if nn_ft.use_combined_model:
-        nn_ft.combine_models[i] = DataParallel(nn_ft.combine_models[i])
+# Parallelize the models
+for i in range(len(nn_ft.models)):
+    nn_ft.models[i] = DataParallel(nn_ft.models[i])
 
 for train_beta in range(int(args.min_beta), int(args.max_beta) + 1):
     # load the data
     data = np.load(f'dump/theta_ori_L{lattice_size}_beta{train_beta}.npy')
     tensor_data = torch.from_numpy(data).float().to(device)
     print(f"Loaded data shape: {tensor_data.shape}")
-    
-    #TODO
-    tensor_data = tensor_data[:1024]
 
     # split the data into training and testing
     train_size = int(0.8 * len(tensor_data))
@@ -67,5 +77,4 @@ for train_beta in range(int(args.min_beta), int(args.max_beta) + 1):
     # train the model
     print("\n>>> Training the model at beta = ", train_beta)
     nn_ft.train(train_data, test_data, train_beta, n_epochs=args.n_epochs, batch_size=args.batch_size)
-
 
