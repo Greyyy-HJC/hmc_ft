@@ -1,0 +1,43 @@
+ 
+>>> PBS_NODEFILE content:
+i105.lcrc.anl.gov
+1n*1t
+Start time: 2025-04-01 15:33:44
+Python 3.10.0
+Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
+PyTorch version: 2.5.1
+CUDA available: False
+Using CPU only
+Lattice size: 64x64
+Number of subsets: 8
+Check Jacobian: True
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+Loaded data shape: torch.Size([10240, 2, 64, 64])
+Training data shape: torch.Size([8192, 2, 64, 64])
+Testing data shape: torch.Size([2048, 2, 64, 64])
+
+>>> Training the model at beta =  3
+
+>>> Training the model at beta = 3
+
+Training epochs:   0%|          | 0/16 [00:00<?, ?it/s]
+Epoch 1/16:   0%|          | 0/256 [00:00<?, ?it/s][A
+Epoch 1/16:   0%|          | 1/256 [05:40<24:05:13, 340.05s/it][A
+Epoch 1/16:   1%|          | 2/256 [10:57<23:02:25, 326.56s/it][A
+Epoch 1/16:   1%|          | 3/256 [16:26<23:02:17, 327.82s/it][A
+Epoch 1/16:   2%|▏         | 4/256 [21:59<23:04:41, 329.69s/it][A
+Epoch 1/16:   2%|▏         | 5/256 [27:29<22:59:43, 329.82s/it][A
+Epoch 1/16:   2%|▏         | 6/256 [32:54<22:47:31, 328.20s/it][A
+Epoch 1/16:   3%|▎         | 7/256 [38:19<22:37:52, 327.20s/it][A
+Epoch 1/16:   3%|▎         | 8/256 [43:55<22:44:55, 330.22s/it][A
+Epoch 1/16:   4%|▎         | 9/256 [49:15<22:24:59, 326.72s/it][A
+Epoch 1/16:   4%|▍         | 10/256 [54:29<22:03:35, 322.83s/it][A
+Epoch 1/16:   4%|▍         | 11/256 [59:50<21:56:53, 322.51s/it][A
+Epoch 1/16:   5%|▍         | 12/256 [1:05:23<22:03:41, 325.50s/it][A
+Epoch 1/16:   5%|▌         | 13/256 [1:10:46<21:56:02, 324.95s/it][A
+Epoch 1/16:   5%|▌         | 14/256 [1:16:07<21:44:53, 323.53s/it][A
+Epoch 1/16:   6%|▌         | 15/256 [1:21:32<21:41:59, 324.15s/it][A
+Epoch 1/16:   6%|▋         | 16/256 [1:26:56<21:36:07, 324.03s/it][A
+Epoch 1/16:   7%|▋         | 17/256 [1:32:19<21:29:14, 323.66s/it][A
+Epoch 1/16:   7%|▋         | 18/256 [1:37:50<21:32:19, 325.80s/it][A
