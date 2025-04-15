@@ -179,7 +179,7 @@ class HMC_U1:
             print(">>> Tuning step size...")
             self.tune_step_size(theta=theta)  # Pass the thermalized theta
         else:
-            print(f">>> Using step size: {self.dt:.6f}")
+            print(f">>> Using step size: {self.dt:.2f}")
         
         # Final thermalization with tuned step size
         print(">>> Final thermalization...")

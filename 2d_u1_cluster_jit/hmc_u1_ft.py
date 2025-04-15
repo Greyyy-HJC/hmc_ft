@@ -278,7 +278,7 @@ class HMC_U1_FT:
             print("Tuning step size before thermalization...")
             self.tune_step_size(theta=theta)
         else:
-            print(f"Using step size: {self.dt:.6f}")
+            print(f"Using step size: {self.dt:.2f}")
         
         theta_new = self.initialize()
         plaq_ls = []
