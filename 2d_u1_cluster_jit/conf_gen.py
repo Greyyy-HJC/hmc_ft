@@ -40,7 +40,7 @@ torch.set_default_dtype(torch.float32)
 print(">>> No Field Transformation HMC Simulation: ")
 
 # Initialize HMC
-hmc = HMC_U1(lattice_size, beta, n_thermalization_steps, n_steps, step_size, device=device)
+hmc = HMC_U1(lattice_size, beta, n_thermalization_steps, n_steps, step_size, device=device, if_tune_step_size=True)
 
 # Thermalize the system
 theta_thermalized, therm_plaq_ls, therm_acceptance_rate = hmc.thermalize()
@@ -54,7 +54,7 @@ print(">>> Simulation completed")
 # Compute autocorrelation of topological charges
 max_lag = 20
 hmc_fig = hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, therm_acceptance_rate, acceptance_rate)
-hmc_fig.savefig(f'plots/hmc_L{lattice_size}_beta{int(beta)}.pdf', transparent=True)
+hmc_fig.savefig(f'plots/conf_gen_hmc_L{lattice_size}_beta{beta:.1f}.pdf', transparent=True)
 
 # Save configurations for training
-np.save(f'dump/theta_ori_L{lattice_size}_beta{int(beta)}.npy', torch.stack(config_ls).detach().cpu().numpy())
+np.save(f'dump/theta_ori_L{lattice_size}_beta{beta:.1f}.npy', torch.stack(config_ls).detach().cpu().numpy())

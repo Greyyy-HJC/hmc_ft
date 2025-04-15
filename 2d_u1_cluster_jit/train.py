@@ -15,6 +15,8 @@ parser.add_argument('--min_beta', type=float, required=True,
                     help='Minimum beta value for training')
 parser.add_argument('--max_beta', type=float, required=True,
                     help='Maximum beta value for training (exclusive)')
+parser.add_argument('--beta_gap', type=float, required=True,
+                    help='Beta gap for training')
 parser.add_argument('--n_epochs', type=int, default=16,
                     help='Number of training epochs (default: 16)')
 parser.add_argument('--batch_size', type=int, default=32,
@@ -61,7 +63,7 @@ nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=args.n_subset
 for i in range(len(nn_ft.models)):
     nn_ft.models[i] = DataParallel(nn_ft.models[i])
 
-for train_beta in range(int(args.min_beta), int(args.max_beta) + 1):
+for train_beta in np.arange(args.min_beta, args.max_beta + args.beta_gap, args.beta_gap):
     # load the data
     data = np.load(f'dump/theta_ori_L{lattice_size}_beta{train_beta}.npy')
     tensor_data = torch.from_numpy(data).float().to(device)

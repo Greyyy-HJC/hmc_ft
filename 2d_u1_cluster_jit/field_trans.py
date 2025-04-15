@@ -365,7 +365,7 @@ class FieldTransformation:
         theta_new = self.inverse(theta_ori)
         
         # Compute forces in original and transformed spaces
-        force_ori = self.compute_force(theta_new, beta=1)
+        force_ori = self.compute_force(theta_new, beta=1) #todo
         force_new = self.compute_force(theta_new, self.train_beta, transformed=True)
         
         # Compute loss using multiple norms
@@ -536,9 +536,15 @@ class FieldTransformation:
         }
         # Save state dict for each model
         for i, model in enumerate(self.models):
+            # Always save the state dict as is, without modifying any prefixes
+            # This ensures consistency - we always save with whatever prefix structure the model has
             save_dict[f'model_state_dict_{i}'] = model.state_dict()
+                
         for i, optimizer in enumerate(self.optimizers):
             save_dict[f'optimizer_state_dict_{i}'] = optimizer.state_dict()
+            
+        # make sure the models directory exists
+        os.makedirs('models', exist_ok=True)
         torch.save(save_dict, f'models/best_model_L{self.L}_train_beta{self.train_beta}.pt')
 
     def _plot_training_history(self, train_losses, test_losses):
@@ -566,11 +572,35 @@ class FieldTransformation:
         Args:
             train_beta: Beta value used during training
         """
-        checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta}.pt'
-        checkpoint = torch.load(checkpoint_path, weights_only=False)
-        
-        # Load models
-        for i, model in enumerate(self.models):
-            model.load_state_dict(checkpoint[f'model_state_dict_{i}'])
-        
-        print(f"Loaded best models from epoch {checkpoint['epoch']} with loss {checkpoint['loss']:.6f}")
+        if train_beta is None:
+            checkpoint_path = f'models/best_model_L{self.L}.pt'
+        else:
+            checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta}.pt'
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
+            
+            # Load models
+            for i, model in enumerate(self.models):
+                state_dict_key = f'model_state_dict_{i}'
+                if state_dict_key in checkpoint:
+                    state_dict = checkpoint[state_dict_key]
+                    
+                    # Check if the current model is wrapped by DataParallel
+                    is_data_parallel = isinstance(model, nn.DataParallel)
+                    has_module_prefix = any(k.startswith('module.') for k in state_dict.keys())
+                    
+                    # If model is not DataParallel but state_dict has 'module.' prefix, remove it
+                    if not is_data_parallel and has_module_prefix:
+                        print(f"Removing 'module.' prefix from state dict for model {i}")
+                        new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+                        model.load_state_dict(new_state_dict)
+                    else:
+                        # Direct load when model structure matches the saved state
+                        model.load_state_dict(state_dict)
+                else:
+                    raise KeyError(f"State dict for model {i} not found in checkpoint")
+                
+            print(f"Loaded best models from epoch {checkpoint['epoch']} with loss {checkpoint['loss']:.6f}")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            raise

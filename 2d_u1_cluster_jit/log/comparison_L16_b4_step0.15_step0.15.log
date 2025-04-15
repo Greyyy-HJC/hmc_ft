@@ -1,0 +1,34 @@
+>>> No Field Transformation HMC Simulation: 
+>>> Initial thermalization...
+>>> Using step size: 0.150000
+>>> Final thermalization...
+>>> Simulation completed
+>>> Theoretical plaquette:  0.8635226110245504
+>>> Mean plaq:  0.8639637404121459
+>>> Std of mean plaq:  0.0003919060082516282
+Thermalization acceptance rate: 0.6400
+Acceptance rate: 0.6016
+>>> Neural Network Field Transformation HMC Simulation: 
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+>>> Loading trained model
+Removing 'module.' prefix from state dict for model 0
+Removing 'module.' prefix from state dict for model 1
+Removing 'module.' prefix from state dict for model 2
+Removing 'module.' prefix from state dict for model 3
+Removing 'module.' prefix from state dict for model 4
+Removing 'module.' prefix from state dict for model 5
+Removing 'module.' prefix from state dict for model 6
+Removing 'module.' prefix from state dict for model 7
+Loaded best models from epoch 8 with loss 0.991296
+>>> Model loaded successfully
+>>> Initial thermalization...
+Using step size: 0.150000
+>>> Simulation completed
+>>> Theoretical plaquette:  0.8635226110245504
+>>> Mean plaq:  0.865918148716446
+>>> Std of mean plaq:  0.00032661221511881506
+Thermalization acceptance rate: 0.1250
+Acceptance rate: 0.1348
+
+00:11 v.s. 39:31

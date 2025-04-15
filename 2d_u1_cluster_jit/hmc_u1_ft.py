@@ -15,6 +15,7 @@ class HMC_U1_FT:
         field_transformation,
         compute_jac_logdet,
         device="cpu",
+        if_tune_step_size=True,
     ):
         """
         Initialize the HMC_U1_FT class.
@@ -44,7 +45,8 @@ class HMC_U1_FT:
         self.field_transformation = field_transformation
         self.compute_jac_logdet = compute_jac_logdet
         self.device = torch.device(device)
-
+        self.if_tune_step_size = if_tune_step_size
+        
         # Set default data type and device
         torch.set_default_dtype(torch.float32)
         torch.set_default_device(self.device)
@@ -183,8 +185,6 @@ class HMC_U1_FT:
 
         delta_H = H_new - H_old
         accept_prob = torch.exp(-delta_H)
-        
-        self.step_count += 1  # Increment step count
 
         if torch.rand([], device=self.device) < accept_prob:
             return new_theta, True, H_new.item()
@@ -274,11 +274,12 @@ class HMC_U1_FT:
             theta, _, _ = self.metropolis_step(theta)
         
         # Tune step size before thermalization
-        print("Tuning step size before thermalization...")
-        self.tune_step_size(theta=theta)
-        print(f"Using step size: {self.dt:.6f} for thermalization")
+        if self.if_tune_step_size:
+            print("Tuning step size before thermalization...")
+            self.tune_step_size(theta=theta)
+        else:
+            print(f"Using step size: {self.dt:.6f}")
         
-        self.step_count = 0
         theta_new = self.initialize()
         plaq_ls = []
         acceptance_count = 0
@@ -315,8 +316,7 @@ class HMC_U1_FT:
             The final field configuration, list of plaquette values, acceptance rate,
             list of topological charges, and list of Hamiltonian values.
         """
-        self.step_count = 0
-        
+
         plaq_ls = []
         hamiltonians = []
         acceptance_count = 0

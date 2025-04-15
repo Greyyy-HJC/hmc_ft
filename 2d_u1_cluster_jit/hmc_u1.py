@@ -22,6 +22,7 @@ class HMC_U1:
         n_steps,
         step_size,
         device="cpu",
+        if_tune_step_size=True,
     ):
         """
         Initialize the HMC_U1 class.
@@ -51,6 +52,7 @@ class HMC_U1:
         self.n_steps = n_steps
         self.dt = step_size
         self.device = torch.device(device)
+        self.if_tune_step_size = if_tune_step_size
 
         # Set default data type and device
         torch.set_default_dtype(torch.float32)
@@ -173,8 +175,11 @@ class HMC_U1:
             theta, _, _ = self.metropolis_step(theta)
         
         # Tune step size on thermalized configuration
-        print(">>> Tuning step size...")
-        self.tune_step_size(theta=theta)  # Pass the thermalized theta
+        if self.if_tune_step_size:
+            print(">>> Tuning step size...")
+            self.tune_step_size(theta=theta)  # Pass the thermalized theta
+        else:
+            print(f">>> Using step size: {self.dt:.6f}")
         
         # Final thermalization with tuned step size
         print(">>> Final thermalization...")
