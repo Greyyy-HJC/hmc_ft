@@ -72,7 +72,7 @@ except Exception as e:
 field_transformation = nn_ft.field_transformation
 compute_jac_logdet = nn_ft.compute_jac_logdet_compiled
 
-step_size = 0.1 # todo
+step_size = 0.08 # todo
 hmc = HMC_U1_FT(lattice_size, beta, n_thermalization_steps, n_steps, step_size, field_transformation=field_transformation, compute_jac_logdet=compute_jac_logdet, device=device, if_tune_step_size=False)
 
 # Thermalize the system
