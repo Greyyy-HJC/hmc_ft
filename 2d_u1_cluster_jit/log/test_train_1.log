@@ -1,101 +1,0 @@
- 
->>> PBS_NODEFILE content:
-i581.lcrc.anl.gov
-1n*1t
-Start time: 2025-04-01 14:14:08
-Python 3.10.0
-Python path: /lcrc/project/L-parton/jinchen/miniconda3/envs/ml/bin/python
-PyTorch version: 2.5.1
-CUDA available: False
-Using CPU only
-Lattice size: 8x8
-Number of subsets: 8
-Check Jacobian: True
-Trying to use torch.compile for optimized computation...
-Successfully initialized torch.compile
-Loaded data shape: torch.Size([2048, 2, 8, 8])
-Training data shape: torch.Size([102, 2, 8, 8])
-Testing data shape: torch.Size([26, 2, 8, 8])
-
->>> Training the model at beta =  3
-
->>> Training the model at beta = 3
-
-Training epochs:   0%|          | 0/4 [00:00<?, ?it/s]
-Epoch 1/4:   0%|          | 0/1 [00:00<?, ?it/s][AW0401 14:14:43.600705 2618061 site-packages/torch/_logging/_internal.py:1081] [0/0] Profiler function <class 'torch.autograd.profiler.record_function'> will be ignored
-W0401 14:14:43.766415 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [0/0] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:44.022192 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [0/1] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:44.480286 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [0/2] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:44.696362 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [0/3] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:44.912375 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [0/4] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:45.127370 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [0/5] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:45.341853 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [0/6] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:45.561808 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [0/7] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:45.634333 2618061 site-packages/torch/_dynamo/convert_frame.py:844] [0/8] torch._dynamo hit config.cache_size_limit (8)
-W0401 14:14:45.634333 2618061 site-packages/torch/_dynamo/convert_frame.py:844] [0/8]    function: 'ft_phase' (/lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster_jit/field_trans.py:109)
-W0401 14:14:45.634333 2618061 site-packages/torch/_dynamo/convert_frame.py:844] [0/8]    last reason: 0/0: tensor 'L['theta']' requires_grad mismatch. expected requires_grad=0
-W0401 14:14:45.634333 2618061 site-packages/torch/_dynamo/convert_frame.py:844] [0/8] To log all recompilation reasons, use TORCH_LOGS="recompiles".
-W0401 14:14:45.634333 2618061 site-packages/torch/_dynamo/convert_frame.py:844] [0/8] To diagnose recompilation issues, see https://pytorch.org/docs/main/torch.compiler_troubleshooting.html.
-W0401 14:14:45.664231 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [1/0] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:46.808523 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [2/0] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:47.172536 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [1/1] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:49.198317 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [3/0] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:14:50.762691 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [2/1] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-
-Epoch 1/4: 100%|██████████| 1/1 [00:55<00:00, 55.20s/it][AEpoch 1/4: 100%|██████████| 1/1 [00:55<00:00, 55.27s/it]
-
-Jacobian log det (manual): 4.96e-01, (autograd): 4.96e-01
->>> Jacobian is all good!
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][AW0401 14:15:51.551718 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [1/2] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:15:53.736146 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [2/2] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-W0401 14:15:58.458118 2618061 site-packages/torch/_dynamo/backends/debugging.py:30] [3/1] eager backend ignoring extra kwargs {'mode': 'reduce-overhead'}
-
-Evaluating: 100%|██████████| 1/1 [00:27<00:00, 27.78s/it][AEvaluating: 100%|██████████| 1/1 [00:28<00:00, 28.81s/it]
-Training epochs:  25%|██▌       | 1/4 [01:24<04:12, 84.10s/it]
-Jacobian log det (manual): -6.20e-01, (autograd): -6.20e-01
->>> Jacobian is all good!
-Epoch 1/4 - Train Loss: 39.367947 - Test Loss: 21.688200
-
-Epoch 2/4:   0%|          | 0/1 [00:00<?, ?it/s][A
-Epoch 2/4: 100%|██████████| 1/1 [01:54<00:00, 114.73s/it][AEpoch 2/4: 100%|██████████| 1/1 [01:56<00:00, 116.38s/it]
-
-Jacobian log det (manual): -7.75e-01, (autograd): -7.75e-01
->>> Jacobian is all good!
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-Evaluating: 100%|██████████| 1/1 [00:18<00:00, 18.50s/it][AEvaluating: 100%|██████████| 1/1 [00:19<00:00, 19.36s/it]
-Training epochs:  50%|█████     | 2/4 [03:39<03:48, 114.49s/it]
-Jacobian log det (manual): -1.87e+00, (autograd): -1.87e+00
->>> Jacobian is all good!
-Epoch 2/4 - Train Loss: 37.123032 - Test Loss: 20.198751
-
-Epoch 3/4:   0%|          | 0/1 [00:00<?, ?it/s][A
-Epoch 3/4: 100%|██████████| 1/1 [01:53<00:00, 113.46s/it][AEpoch 3/4: 100%|██████████| 1/1 [01:54<00:00, 114.83s/it]
-
-Jacobian log det (manual): -1.63e+00, (autograd): -1.63e+00
->>> Jacobian is all good!
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-Evaluating: 100%|██████████| 1/1 [00:18<00:00, 18.95s/it][AEvaluating: 100%|██████████| 1/1 [00:19<00:00, 19.76s/it]
-Training epochs:  75%|███████▌  | 3/4 [05:54<02:03, 123.67s/it]
-Jacobian log det (manual): -3.21e+00, (autograd): -3.21e+00
->>> Jacobian is all good!
-Epoch 3/4 - Train Loss: 34.821495 - Test Loss: 18.703964
-
-Epoch 4/4:   0%|          | 0/1 [00:00<?, ?it/s][A
-Epoch 4/4: 100%|██████████| 1/1 [01:54<00:00, 114.06s/it][AEpoch 4/4: 100%|██████████| 1/1 [01:55<00:00, 115.47s/it]
-
-Jacobian log det (manual): -3.26e+00, (autograd): -3.26e+00
->>> Jacobian is all good!
-
-Evaluating:   0%|          | 0/1 [00:00<?, ?it/s][A
-Evaluating: 100%|██████████| 1/1 [00:18<00:00, 18.88s/it][AEvaluating: 100%|██████████| 1/1 [00:19<00:00, 19.58s/it]
-Training epochs: 100%|██████████| 4/4 [08:09<00:00, 128.17s/it]Training epochs: 100%|██████████| 4/4 [08:09<00:00, 122.38s/it]
-
-Jacobian log det (manual): -4.66e+00, (autograd): -4.66e+00
->>> Jacobian is all good!
-Epoch 4/4 - Train Loss: 32.468128 - Test Loss: 17.211498
-Loaded best models from epoch 3 with loss 17.211498
-End time: 2025-04-01 14:22:55
-Total time: 0h 8m 47s

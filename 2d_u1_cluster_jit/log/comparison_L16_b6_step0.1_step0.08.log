@@ -23,10 +23,10 @@ Removing 'module.' prefix from state dict for model 7
 Loaded best models from epoch 6 with loss 0.302808
 >>> Model loaded successfully
 >>> Initial thermalization...
-Using step size: 0.10
+Using step size: 0.08
 >>> Simulation completed
 >>> Theoretical plaquette:  0.9123593043529149
->>> Mean plaq:  0.9132171253440902
->>> Std of mean plaq:  0.0002007104934501653
-Thermalization acceptance rate: 0.5650
-Acceptance rate: 0.5078
+>>> Mean plaq:  0.9123354884213768
+>>> Std of mean plaq:  0.0002413178552030303
+Thermalization acceptance rate: 0.7650
+Acceptance rate: 0.7539

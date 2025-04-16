@@ -10,7 +10,7 @@ from utils import hmc_summary
 # Parameters
 lattice_size = 16
 volume = lattice_size ** 2
-beta = 6.0
+beta = 5.5
 n_thermalization_steps = 200
 n_steps = 50
 step_size = 0.1

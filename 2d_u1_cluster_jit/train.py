@@ -27,6 +27,8 @@ parser.add_argument('--n_workers', type=int, default=0,
                     help='Number of workers for training (default: 0)')
 parser.add_argument('--if_check_jac', type=bool, default=False,
                     help='Check Jacobian for training (default: False)')
+parser.add_argument('--if_continue', type=bool, default=True,
+                    help='Continue training from the best model (default: True)')
 
 args = parser.parse_args()
 
@@ -58,6 +60,13 @@ torch.set_default_dtype(torch.float32)
 # %%
 # initialize the field transformation
 nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=args.n_subsets, if_check_jac=args.if_check_jac, num_workers=args.n_workers)
+
+if args.if_continue:
+    start_beta = args.min_beta - args.beta_gap
+    nn_ft._load_best_model(train_beta=start_beta)
+    print(f">>> Loaded the best model at beta = {start_beta} to continue training")
+else:
+    print(">>> Training from scratch")
 
 # Parallelize the models
 for i in range(len(nn_ft.models)):
