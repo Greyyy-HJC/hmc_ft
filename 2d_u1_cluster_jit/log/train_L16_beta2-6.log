@@ -1,0 +1,228 @@
+PyTorch version: 2.5.1
+CUDA available: True
+CUDA devices: 1
+CUDA device name: NVIDIA GeForce RTX 3060
+Lattice size: 16x16
+Number of subsets: 8
+Check Jacobian: False
+Identity initialization: True
+Continue training: False
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+>>> Training from scratch
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  2.0
+
+>>> Training the model at beta = 2.0
+
+Epoch 1/10 - Train Loss: 9.999653 - Test Loss: 6.302875
+Epoch 2/10 - Train Loss: 6.330142 - Test Loss: 5.882967
+Epoch 3/10 - Train Loss: 6.105819 - Test Loss: 5.779878
+Epoch 4/10 - Train Loss: 5.954521 - Test Loss: 5.618265
+Epoch 5/10 - Train Loss: 5.712826 - Test Loss: 5.299572
+Epoch 6/10 - Train Loss: 5.254386 - Test Loss: 4.814982
+Epoch 7/10 - Train Loss: 4.602603 - Test Loss: 4.253488
+Epoch 8/10 - Train Loss: 4.045186 - Test Loss: 3.899562
+Epoch 9/10 - Train Loss: 3.689887 - Test Loss: 3.550449
+Epoch 10/10 - Train Loss: 3.452578 - Test Loss: 3.282448
+Loaded best models from epoch 10 with loss 3.282448
+
+>>> Completed beta = 2.0
+>>> Time for this beta: 0:37:22
+>>> Total elapsed time: 0:37:22
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  2.5
+
+>>> Training the model at beta = 2.5
+
+Epoch 1/10 - Train Loss: 3.285947 - Test Loss: 2.826211
+Epoch 2/10 - Train Loss: 2.681581 - Test Loss: 2.792890
+Epoch 3/10 - Train Loss: 2.575058 - Test Loss: 2.558349
+Epoch 4/10 - Train Loss: 2.469357 - Test Loss: 2.567227
+Epoch 5/10 - Train Loss: 2.318247 - Test Loss: 2.245409
+Epoch 6/10 - Train Loss: 2.240561 - Test Loss: 2.189653
+Epoch 7/10 - Train Loss: 2.130261 - Test Loss: 2.234027
+Epoch 8/10 - Train Loss: 2.045496 - Test Loss: 2.122479
+Epoch 9/10 - Train Loss: 2.051598 - Test Loss: 2.072297
+Epoch 10/10 - Train Loss: 1.935119 - Test Loss: 1.963257
+Loaded best models from epoch 10 with loss 1.963257
+
+>>> Completed beta = 2.5
+>>> Time for this beta: 0:38:09
+>>> Total elapsed time: 1:15:31
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  3.0
+
+>>> Training the model at beta = 3.0
+
+Epoch 1/10 - Train Loss: 1.730237 - Test Loss: 1.508674
+Epoch 2/10 - Train Loss: 1.567834 - Test Loss: 1.752059
+Epoch 3/10 - Train Loss: 1.607505 - Test Loss: 1.691038
+Epoch 4/10 - Train Loss: 1.444254 - Test Loss: 1.350333
+Epoch 5/10 - Train Loss: 1.416653 - Test Loss: 1.383797
+Epoch 6/10 - Train Loss: 1.340917 - Test Loss: 1.466693
+Epoch 7/10 - Train Loss: 1.370093 - Test Loss: 1.231189
+Epoch 8/10 - Train Loss: 1.280601 - Test Loss: 1.319756
+Epoch 9/10 - Train Loss: 1.320524 - Test Loss: 1.339587
+Epoch 10/10 - Train Loss: 1.272857 - Test Loss: 1.320468
+Loaded best models from epoch 7 with loss 1.231189
+
+>>> Completed beta = 3.0
+>>> Time for this beta: 0:38:37
+>>> Total elapsed time: 1:54:08
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  3.5
+
+>>> Training the model at beta = 3.5
+
+Epoch 1/10 - Train Loss: 1.771837 - Test Loss: 1.426479
+Epoch 2/10 - Train Loss: 1.522802 - Test Loss: 1.588428
+Epoch 3/10 - Train Loss: 1.392593 - Test Loss: 1.467572
+Epoch 4/10 - Train Loss: 1.165377 - Test Loss: 1.021797
+Epoch 5/10 - Train Loss: 1.046819 - Test Loss: 1.098084
+Epoch 6/10 - Train Loss: 1.118164 - Test Loss: 1.124755
+Epoch 7/10 - Train Loss: 1.078026 - Test Loss: 1.003725
+Epoch 8/10 - Train Loss: 1.038513 - Test Loss: 0.986198
+Epoch 9/10 - Train Loss: 0.998053 - Test Loss: 1.013928
+Epoch 10/10 - Train Loss: 0.990087 - Test Loss: 1.118870
+Loaded best models from epoch 8 with loss 0.986198
+
+>>> Completed beta = 3.5
+>>> Time for this beta: 0:38:40
+>>> Total elapsed time: 2:32:49
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  4.0
+
+>>> Training the model at beta = 4.0
+
+Epoch 1/10 - Train Loss: 0.982501 - Test Loss: 1.118295
+Epoch 2/10 - Train Loss: 0.913778 - Test Loss: 1.001694
+Epoch 3/10 - Train Loss: 0.811976 - Test Loss: 1.076079
+Epoch 4/10 - Train Loss: 0.845832 - Test Loss: 0.841242
+Epoch 5/10 - Train Loss: 0.797573 - Test Loss: 0.948097
+Epoch 6/10 - Train Loss: 0.801678 - Test Loss: 0.944322
+Epoch 7/10 - Train Loss: 0.765377 - Test Loss: 0.825374
+Epoch 8/10 - Train Loss: 0.768415 - Test Loss: 0.982384
+Epoch 9/10 - Train Loss: 0.776246 - Test Loss: 0.961205
+Epoch 10/10 - Train Loss: 0.760215 - Test Loss: 0.897804
+Loaded best models from epoch 7 with loss 0.825374
+
+>>> Completed beta = 4.0
+>>> Time for this beta: 0:38:47
+>>> Total elapsed time: 3:11:37
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  4.5
+
+>>> Training the model at beta = 4.5
+
+Epoch 1/10 - Train Loss: 0.969087 - Test Loss: 0.893353
+Epoch 2/10 - Train Loss: 0.831794 - Test Loss: 0.904426
+Epoch 3/10 - Train Loss: 0.782979 - Test Loss: 0.695117
+Epoch 4/10 - Train Loss: 0.853981 - Test Loss: 0.883511
+Epoch 5/10 - Train Loss: 0.813396 - Test Loss: 0.712051
+Epoch 6/10 - Train Loss: 0.816479 - Test Loss: 0.910163
+Epoch 7/10 - Train Loss: 0.800747 - Test Loss: 0.811874
+Epoch 8/10 - Train Loss: 0.752250 - Test Loss: 0.763923
+Epoch 9/10 - Train Loss: 0.794405 - Test Loss: 0.675563
+Epoch 10/10 - Train Loss: 0.763737 - Test Loss: 0.763559
+Loaded best models from epoch 9 with loss 0.675563
+
+>>> Completed beta = 4.5
+>>> Time for this beta: 0:39:15
+>>> Total elapsed time: 3:50:52
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  5.0
+
+>>> Training the model at beta = 5.0
+
+Epoch 1/10 - Train Loss: 0.906916 - Test Loss: 0.782892
+Epoch 2/10 - Train Loss: 0.619830 - Test Loss: 0.805266
+Epoch 3/10 - Train Loss: 0.603849 - Test Loss: 0.808639
+Epoch 4/10 - Train Loss: 0.591076 - Test Loss: 0.685010
+Epoch 5/10 - Train Loss: 0.538490 - Test Loss: 0.657829
+Epoch 6/10 - Train Loss: 0.521581 - Test Loss: 0.584811
+Epoch 7/10 - Train Loss: 0.490105 - Test Loss: 0.639204
+Epoch 8/10 - Train Loss: 0.478908 - Test Loss: 0.634770
+Epoch 9/10 - Train Loss: 0.470859 - Test Loss: 0.621558
+Epoch 10/10 - Train Loss: 0.452700 - Test Loss: 0.706487
+Loaded best models from epoch 6 with loss 0.584811
+
+>>> Completed beta = 5.0
+>>> Time for this beta: 0:39:19
+>>> Total elapsed time: 4:30:12
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  5.5
+
+>>> Training the model at beta = 5.5
+
+Epoch 1/10 - Train Loss: 0.653975 - Test Loss: 0.551235
+Epoch 2/10 - Train Loss: 0.663022 - Test Loss: 0.884953
+Epoch 3/10 - Train Loss: 0.709563 - Test Loss: 0.507133
+Epoch 4/10 - Train Loss: 0.535155 - Test Loss: 0.445962
+Epoch 5/10 - Train Loss: 0.510407 - Test Loss: 0.500113
+Epoch 6/10 - Train Loss: 0.546668 - Test Loss: 0.548255
+Epoch 7/10 - Train Loss: 0.527635 - Test Loss: 0.397569
+Epoch 8/10 - Train Loss: 0.639289 - Test Loss: 0.635912
+Epoch 9/10 - Train Loss: 0.599561 - Test Loss: 0.443892
+Epoch 10/10 - Train Loss: 0.527826 - Test Loss: 0.488509
+Loaded best models from epoch 7 with loss 0.397569
+
+>>> Completed beta = 5.5
+>>> Time for this beta: 0:39:24
+>>> Total elapsed time: 5:09:37
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  6.0
+
+>>> Training the model at beta = 6.0
+
+Epoch 1/10 - Train Loss: 0.586180 - Test Loss: 0.504232
+Epoch 2/10 - Train Loss: 0.527202 - Test Loss: 0.483548
+Epoch 3/10 - Train Loss: 0.501439 - Test Loss: 0.665320
+Epoch 4/10 - Train Loss: 0.456734 - Test Loss: 0.348009
+Epoch 5/10 - Train Loss: 0.378465 - Test Loss: 0.325921
+Epoch 6/10 - Train Loss: 0.344754 - Test Loss: 0.318747
+Epoch 7/10 - Train Loss: 0.345723 - Test Loss: 0.318227
+Epoch 8/10 - Train Loss: 0.342161 - Test Loss: 0.319105
+Epoch 9/10 - Train Loss: 0.342607 - Test Loss: 0.323880
+Epoch 10/10 - Train Loss: 0.357779 - Test Loss: 0.334189
+Loaded best models from epoch 7 with loss 0.318227
+
+>>> Completed beta = 6.0
+>>> Time for this beta: 0:39:38
+>>> Total elapsed time: 5:49:16
+==================================================

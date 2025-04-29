@@ -3,15 +3,6 @@ import torch
 from tqdm import tqdm
 from utils import plaq_from_field, topo_from_field, plaq_mean_from_field, regularize
 
-def action(theta, beta):
-    theta_P = plaq_from_field(theta)
-    thetaP_wrapped = regularize(theta_P)
-    action_value = (-beta) * torch.sum(torch.cos(thetaP_wrapped))
-    
-    assert action_value.dim() == 0, "Action value is not a scalar."
-    
-    return action_value
-
 
 class HMC_U1:
     def __init__(
@@ -61,11 +52,20 @@ class HMC_U1:
 
     def initialize(self):
         return torch.zeros([2, self.lattice_size, self.lattice_size])
+    
+    def action(self, theta):
+        theta_P = plaq_from_field(theta)
+        thetaP_wrapped = regularize(theta_P)
+        action_value = (-self.beta) * torch.sum(torch.cos(thetaP_wrapped))
+        
+        assert action_value.dim() == 0, "Action value is not a scalar."
+        
+        return action_value
 
     def force(self, theta):
         theta.requires_grad_(True)
-        action_value = action(theta, self.beta)
-        action_value.backward()
+        action_value = self.action(theta)
+        action_value.backward(retain_graph=True)
         ff = theta.grad
         theta.requires_grad_(False) # so that the memory can be freed
         return ff
@@ -83,11 +83,11 @@ class HMC_U1:
 
     def metropolis_step(self, theta):
         pi = torch.randn_like(theta, device=self.device)
-        action_value = action(theta, self.beta)
+        action_value = self.action(theta)
         H_old = action_value + 0.5 * torch.sum(pi**2)
 
         new_theta, new_pi = self.leapfrog(theta.clone(), pi.clone())
-        new_action_value = action(new_theta, self.beta)
+        new_action_value = self.action(new_theta)
         H_new = new_action_value + 0.5 * torch.sum(new_pi**2)
 
         delta_H = H_new - H_old
@@ -181,12 +181,12 @@ class HMC_U1:
         else:
             print(f">>> Using step size: {self.dt:.2f}")
         
-        # Final thermalization with tuned step size
-        print(">>> Final thermalization...")
+        theta = self.initialize()
         plaq_ls = []
         acceptance_count = 0
         
-        for _ in tqdm(range(self.n_thermalization_steps), desc="Final thermalization"):
+        for _ in tqdm(range(self.n_thermalization_steps), desc="Thermalizing"):
+            theta = regularize(theta)
             plaq = plaq_mean_from_field(theta).item()
             theta, accepted, _ = self.metropolis_step(theta)
             
@@ -212,12 +212,13 @@ class HMC_U1:
         plaq_ls = []
         hamiltonians = []
         acceptance_count = 0
-        topological_charges = []
+        topological_charges = [] 
 
         for i in tqdm(range(n_iterations), desc="Running HMC"):
             theta, accepted, H_val = self.metropolis_step(theta)
             
             if i % store_interval == 0:  # only store data at specific intervals
+                theta = regularize(theta)
                 theta_ls.append(theta)
                 plaq = plaq_mean_from_field(theta).item()
                 plaq_ls.append(plaq)

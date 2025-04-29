@@ -14,7 +14,10 @@ warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 warnings.filterwarnings("ignore", category=UserWarning, module="torch._dynamo")
 
 # Set environment variable to control PyTorch log level
-os.environ["TORCH_LOGS"] = "ERROR"
+# Fix: ERROR is not a valid setting for TORCH_LOGS
+# Using empty string disables all logging except errors
+os.environ["TORCH_LOGS"] = ""
+# This is the proper way to set C++ log level
 os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
 
 # Configure PyTorch logger, redirect to file
@@ -26,8 +29,7 @@ torch_logger.propagate = False
 
 
 from utils import plaq_from_field_batch, rect_from_field_batch, get_field_mask, get_plaq_mask, get_rect_mask
-# from cnn_model import jointCNN
-from cnn_model_opt import jointCNN
+from cnn_model import jointCNN
 
 class FieldTransformation:
     """Neural network based field transformation"""
@@ -66,15 +68,20 @@ class FieldTransformation:
         self._init_compiled_functions()
 
     def _init_compiled_functions(self):
-        """Initialize functions optimized by torch.compile"""
-        if hasattr(torch, 'compile'):  # Ensure PyTorch version supports compile
+        """Initialize functions optimized by torch.compile and CUDA graphs"""
+        use_compile = False
+        
+        # Skip CUDA Graphs entirely due to stability issues
+        print("CUDA Graphs disabled due to stability issues")
+        
+        # Try torch.compile for optimization
+        if hasattr(torch, 'compile'):
             try:
                 # Only compile compute-intensive functions with safer backend option
-                # Use 'eager' backend and configure for minimal logs
                 compile_options = {
-                    "backend": "eager",     # Simple backend, avoid C++ compilation errors
+                    "backend": "eager",     # Use eager backend which is most stable
                     "fullgraph": False,     # Do not require full graph compilation
-                    "dynamic": True,        # Allow dynamic shapes, reduce recompilation warnings
+                    "dynamic": True,        # Allow dynamic shapes
                 }
                 
                 print("Trying to use torch.compile for optimized computation...")
@@ -82,21 +89,19 @@ class FieldTransformation:
                 self.ft_phase_compiled = torch.compile(self.ft_phase, **compile_options)
                 self.compute_jac_logdet_compiled = torch.compile(self.compute_jac_logdet, **compile_options)
                 self.compute_action_compiled = torch.compile(self.compute_action, **compile_options)
+                use_compile = True
                 print("Successfully initialized torch.compile")
             except Exception as e:
                 print(f"Warning: torch.compile initialization failed: {e}")
                 print("Falling back to standard functions")
-                self.forward_compiled = self.forward
-                self.ft_phase_compiled = self.ft_phase
-                self.compute_jac_logdet_compiled = self.compute_jac_logdet
-                self.compute_action_compiled = self.compute_action
-        else:
-            # If PyTorch version does not support compile, use standard functions
+        
+        # If torch.compile failed, use standard functions
+        if not use_compile:
             self.forward_compiled = self.forward
             self.ft_phase_compiled = self.ft_phase
             self.compute_jac_logdet_compiled = self.compute_jac_logdet
             self.compute_action_compiled = self.compute_action
-            print("torch.compile not available, using standard functions")
+            print("Using standard functions without acceleration")
 
     def compute_K0_K1(self, theta, index):
         """
@@ -202,13 +207,10 @@ class FieldTransformation:
             theta_curr = theta_curr + self.ft_phase_compiled(theta_curr, index)
             
         return theta_curr
-    
+
     def field_transformation(self, theta):
         """Field transformation function for HMC (single input)"""
-        return self.forward(theta.unsqueeze(0)).squeeze(0)
-
-    def field_transformation_compiled(self, theta):
-        """Field transformation function for HMC (single input)"""
+        # Simplified version that doesn't use CUDA graphs
         return self.forward_compiled(theta.unsqueeze(0)).squeeze(0)
 
     def inverse(self, theta):
@@ -342,6 +344,9 @@ class FieldTransformation:
         """
         batch_size = theta.shape[0]
         
+        # Make sure input requires gradients
+        theta = theta.detach().clone().requires_grad_(True)
+        
         if transformed:
             # In transformed space, account for the Jacobian
             theta_ori = self.forward_compiled(theta)
@@ -364,11 +369,25 @@ class FieldTransformation:
         else:
             total_action = self.compute_action_compiled(theta, beta)
         
-        # Calculate force for each sample in batch
-        force = torch.zeros_like(theta)
-        for i in range(batch_size):
-            grad = torch.autograd.grad(total_action[i], theta, create_graph=True)[0]
-            force[i] = grad[i] 
+        # Use vmap for vectorized gradient computation if PyTorch version supports it
+        if hasattr(torch.func, 'vmap') and not self.if_check_jac:
+            # vmap is more efficient for calculating gradients across batch
+            def grad_fn(x):
+                # Single sample gradient function
+                x_single = x.unsqueeze(0).requires_grad_(True)
+                act = self.compute_action_compiled(x_single, beta) if not transformed else \
+                     (self.compute_action_compiled(self.forward_compiled(x_single), beta) - 
+                      self.compute_jac_logdet_compiled(x_single))
+                return torch.autograd.grad(act[0], x_single)[0].squeeze(0)
+            
+            # Apply vmap to calculate gradients for all samples in batch
+            force = torch.func.vmap(grad_fn)(theta)
+        else:
+            # Calculate force for each sample in batch (traditional way)
+            force = torch.zeros_like(theta)
+            for i in range(batch_size):
+                grad = torch.autograd.grad(total_action[i], theta, retain_graph=(i < batch_size-1))[0]
+                force[i] = grad[i] 
         
         return force  # shape: [batch_size, 2, L, L]
     
@@ -377,8 +396,13 @@ class FieldTransformation:
         # Transform original configuration to new configuration
         theta_new = self.inverse(theta_ori)
         
+        # Check if we can use CUDA graphs for this batch shape
+        use_graphs = (hasattr(self, 'static_input') and 
+                      theta_new.shape == self.static_input.shape and 
+                      self.device != torch.device('cpu'))
+        
         # Compute forces in original and transformed spaces
-        force_ori = self.compute_force(theta_new, beta=1) #todo
+        force_ori = self.compute_force(theta_new, beta=1.0)
         force_new = self.compute_force(theta_new, self.train_beta, transformed=True)
         
         # Compute loss using multiple norms
@@ -392,12 +416,102 @@ class FieldTransformation:
         
         return loss
 
- 
+    def train(self, train_data, test_data, train_beta, n_epochs=100, batch_size=4):
+        """
+        Train all models together
+        
+        Args:
+            train_data: Training dataset
+            test_data: Testing dataset
+            train_beta: Beta value for training
+            n_epochs: Number of training epochs
+            batch_size: Batch size for training
+        """
+        train_losses = []
+        test_losses = []
+        best_loss = float('inf')
+        
+        self.train_beta = train_beta
+        
+        # Create data loaders
+        train_loader = torch.utils.data.DataLoader(
+            train_data, batch_size=batch_size, shuffle=True, num_workers=self.num_workers
+        )
+        test_loader = torch.utils.data.DataLoader(
+            test_data, batch_size=batch_size, num_workers=self.num_workers
+        )
+        
+        # Print training information
+        print(f"\n>>> Training the model at beta = {train_beta}\n")
+        
+        # Try to enable TF32 for faster training on Ampere or newer GPUs
+        if torch.cuda.is_available():
+            # Check if GPU supports TF32
+            major, minor = torch.cuda.get_device_capability()
+            if major >= 8:  # Ampere or newer
+                print("Enabling TF32 precision for faster training")
+                torch.backends.cuda.matmul.allow_tf32 = True
+                torch.backends.cudnn.allow_tf32 = True
+        
+        for epoch in tqdm(range(n_epochs), desc="Training epochs"):
+            # Training phase
+            self._set_models_mode(True)  # Set models to training mode
+            
+            epoch_losses = []
+            
+            for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{n_epochs}"):
+                loss = self.train_step(batch)
+                epoch_losses.append(loss)
+                
+            train_loss = np.mean(epoch_losses)
+            train_losses.append(train_loss)
+            
+            # Evaluation phase
+            self._set_models_mode(False)  # Set models to evaluation mode
+            
+            test_losses_epoch = []
+            
+            with torch.no_grad():  # Disable gradient computation for evaluation
+                for batch in tqdm(test_loader, desc="Evaluating"):
+                    loss = self.evaluate_step(batch)
+                    test_losses_epoch.append(loss)
+                
+            test_loss = np.mean(test_losses_epoch)
+            test_losses.append(test_loss)
+            
+            # Print epoch summary
+            print(f"Epoch {epoch+1}/{n_epochs} - "
+                  f"Train Loss: {train_loss:.6f} - "
+                  f"Test Loss: {test_loss:.6f}")
+            
+            # Save best model
+            if test_loss < best_loss:
+                self._save_best_model(epoch, test_loss)
+                best_loss = test_loss
+            
+            # Update learning rate schedulers
+            self._update_schedulers(test_loss)
+            
+            # Optional GPU memory cleanup
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        
+        # Plot training history
+        self._plot_training_history(train_losses, test_losses)
+        
+        # Load best model
+        self._load_best_model(train_beta)
+
     def train_step(self, theta_ori):
         """Perform a single training step for all subsets together"""
         theta_ori = theta_ori.to(self.device)
         
         with torch.autograd.set_grad_enabled(True):
+            # Check if we can use CUDA graphs for this batch shape
+            use_graphs = (hasattr(self, 'static_input') and 
+                          theta_ori.shape == self.static_input.shape and 
+                          self.device != torch.device('cpu'))
+            
             # Compute loss
             loss = self.loss_fn(theta_ori)
             
@@ -434,84 +548,14 @@ class FieldTransformation:
         """
         theta_ori = theta_ori.to(self.device)
         
-        # * gradient is needed for evaluation
-        theta_ori.requires_grad_(True)
-        loss = self.loss_fn(theta_ori)
+        # No need to track gradients in evaluation
+        with torch.no_grad():
+            # For evaluation, we still need gradients in the force computation
+            # but not for the outer evaluation loop
+            loss = self.loss_fn(theta_ori)
         
         return loss.item()
 
-    def train(self, train_data, test_data, train_beta, n_epochs=100, batch_size=4):
-        """
-        Train all models together
-        
-        Args:
-            train_data: Training dataset
-            test_data: Testing dataset
-            train_beta: Beta value for training
-            n_epochs: Number of training epochs
-            batch_size: Batch size for training
-        """
-        train_losses = []
-        test_losses = []
-        best_loss = float('inf')
-        
-        self.train_beta = train_beta
-        
-        # Create data loaders
-        train_loader = torch.utils.data.DataLoader(
-            train_data, batch_size=batch_size, shuffle=True, num_workers=self.num_workers
-        )
-        test_loader = torch.utils.data.DataLoader(
-            test_data, batch_size=batch_size, num_workers=self.num_workers
-        )
-        
-        # Print training information
-        print(f"\n>>> Training the model at beta = {train_beta}\n")
-        
-        for epoch in tqdm(range(n_epochs), desc="Training epochs"):
-            # Training phase
-            self._set_models_mode(True)  # Set models to training mode
-            
-            epoch_losses = []
-            
-            for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{n_epochs}"):
-                loss = self.train_step(batch)
-                epoch_losses.append(loss)
-                
-            train_loss = np.mean(epoch_losses)
-            train_losses.append(train_loss)
-            
-            # Evaluation phase
-            self._set_models_mode(False)  # Set models to evaluation mode
-            
-            test_losses_epoch = []
-            
-            for batch in tqdm(test_loader, desc="Evaluating"):
-                loss = self.evaluate_step(batch)
-                test_losses_epoch.append(loss)
-                
-            test_loss = np.mean(test_losses_epoch)
-            test_losses.append(test_loss)
-            
-            # Print epoch summary
-            print(f"Epoch {epoch+1}/{n_epochs} - "
-                  f"Train Loss: {train_loss:.6f} - "
-                  f"Test Loss: {test_loss:.6f}")
-            
-            # Save best model
-            if test_loss < best_loss:
-                self._save_best_model(epoch, test_loss)
-                best_loss = test_loss
-            
-            # Update learning rate schedulers
-            self._update_schedulers(test_loss)
-        
-        # Plot training history
-        self._plot_training_history(train_losses, test_losses)
-        
-        # Load best model
-        self._load_best_model(train_beta)
-    
     def _set_models_mode(self, is_train):
         """
         Set all models to training or evaluation mode
@@ -612,7 +656,7 @@ class FieldTransformation:
                 else:
                     raise KeyError(f"State dict for model {i} not found in checkpoint")
                 
-            print(f"Loaded best models from epoch {checkpoint['epoch'] + 1} with loss {checkpoint['loss']:.6f}") # +1 because epoch starts from 0
+            print(f"Loaded best models from epoch {checkpoint['epoch']} with loss {checkpoint['loss']:.6f}")
         except Exception as e:
             print(f"Error loading model: {e}")
             raise

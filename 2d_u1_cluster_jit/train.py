@@ -4,8 +4,13 @@ import sys
 import torch
 import numpy as np
 import argparse
+import time
+import datetime
 from field_trans import FieldTransformation
 from torch.nn.parallel import DataParallel
+
+# Record program start time
+start_time = time.time()
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Training parameters for Field Transformation')
@@ -25,10 +30,13 @@ parser.add_argument('--n_subsets', type=int, default=8,
                     help='Number of subsets for training (default: 8)')
 parser.add_argument('--n_workers', type=int, default=0,
                     help='Number of workers for training (default: 0)')
-parser.add_argument('--if_check_jac', type=bool, default=False,
+parser.add_argument('--if_identity_init', action='store_true',
+                    help='Initialize models to produce identity transformation (default: False)')
+parser.add_argument('--if_check_jac', action='store_true',
                     help='Check Jacobian for training (default: False)')
-parser.add_argument('--if_continue', type=bool, default=True,
-                    help='Continue training from the best model (default: True)')
+parser.add_argument('--if_continue', action='store_true',
+                    help='Continue training from the best model (default: False)')
+
 
 args = parser.parse_args()
 
@@ -43,12 +51,17 @@ if torch.cuda.is_available():
 else:
     print("Using CPU only")
     device = 'cpu'
+    
+# Set random seed
+torch.manual_seed(1331)
 
 # Parameters
 lattice_size = args.lattice_size
 print(f"Lattice size: {lattice_size}x{lattice_size}")
 print(f"Number of subsets: {args.n_subsets}")
 print(f"Check Jacobian: {args.if_check_jac}")
+print(f"Identity initialization: {args.if_identity_init}")
+print(f"Continue training: {args.if_continue}")
 
 # Create output directories
 os.makedirs('models', exist_ok=True)
@@ -59,7 +72,7 @@ torch.set_default_dtype(torch.float32)
 
 # %%
 # initialize the field transformation
-nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=args.n_subsets, if_check_jac=args.if_check_jac, num_workers=args.n_workers)
+nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=args.n_subsets, if_check_jac=args.if_check_jac, num_workers=args.n_workers, identity_init=args.if_identity_init)
 
 if args.if_continue:
     start_beta = args.min_beta - args.beta_gap
@@ -73,6 +86,8 @@ for i in range(len(nn_ft.models)):
     nn_ft.models[i] = DataParallel(nn_ft.models[i])
 
 for train_beta in np.arange(args.min_beta, args.max_beta + args.beta_gap, args.beta_gap):
+    beta_start_time = time.time()
+    
     # load the data
     data = np.load(f'dump/theta_ori_L{lattice_size}_beta{train_beta}.npy')
     tensor_data = torch.from_numpy(data).float().to(device)
@@ -88,4 +103,17 @@ for train_beta in np.arange(args.min_beta, args.max_beta + args.beta_gap, args.b
     # train the model
     print("\n>>> Training the model at beta = ", train_beta)
     nn_ft.train(train_data, test_data, train_beta, n_epochs=args.n_epochs, batch_size=args.batch_size)
+    
+    # Calculate and print timing information
+    beta_time = time.time() - beta_start_time
+    total_time = time.time() - start_time
+    
+    # Format times as HH:MM:SS
+    beta_time_formatted = str(datetime.timedelta(seconds=int(beta_time)))
+    total_time_formatted = str(datetime.timedelta(seconds=int(total_time)))
+    
+    print(f"\n>>> Completed beta = {train_beta}")
+    print(f">>> Time for this beta: {beta_time_formatted}")
+    print(f">>> Total elapsed time: {total_time_formatted}")
+    print("="*50)
 

@@ -1,0 +1,50 @@
+PyTorch version: 2.5.1
+CUDA available: True
+CUDA devices: 1
+CUDA device name: NVIDIA GeForce RTX 3060
+Lattice size: 16x16
+Number of subsets: 8
+Check Jacobian: False
+Identity initialization: True
+Continue training: False
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+>>> Training from scratch
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  2.0
+
+>>> Training the model at beta = 2.0
+
+Epoch 1/10 - Train Loss: 10.664927 - Test Loss: 6.932684
+Epoch 2/10 - Train Loss: 6.456565 - Test Loss: 5.968960
+Epoch 3/10 - Train Loss: 6.153251 - Test Loss: 5.876004
+Epoch 4/10 - Train Loss: 6.113467 - Test Loss: 5.814370
+Epoch 5/10 - Train Loss: 6.019397 - Test Loss: 5.713719
+Epoch 6/10 - Train Loss: 5.828910 - Test Loss: 5.461105
+Epoch 7/10 - Train Loss: 5.470514 - Test Loss: 5.084405
+Epoch 8/10 - Train Loss: 4.847378 - Test Loss: 4.474158
+Epoch 9/10 - Train Loss: 4.224181 - Test Loss: 3.882300
+Epoch 10/10 - Train Loss: 3.693372 - Test Loss: 3.553360
+Loaded best models from epoch 10 with loss 3.553360
+
+>>> Completed beta = 2.0
+>>> Time for this beta: 0:43:26
+>>> Total elapsed time: 0:43:26
+==================================================
+Loaded data shape: torch.Size([1024, 2, 16, 16])
+Training data shape: torch.Size([819, 2, 16, 16])
+Testing data shape: torch.Size([205, 2, 16, 16])
+
+>>> Training the model at beta =  2.5
+
+>>> Training the model at beta = 2.5
+
+Epoch 1/10 - Train Loss: 3.641978 - Test Loss: 3.064710
+Epoch 2/10 - Train Loss: 3.131618 - Test Loss: 2.934184
+Epoch 3/10 - Train Loss: 2.739049 - Test Loss: 2.664997
+Epoch 4/10 - Train Loss: 2.595351 - Test Loss: 2.788131
+Epoch 5/10 - Train Loss: 2.529034 - Test Loss: 2.658843
+Epoch 6/10 - Train Loss: 2.363091 - Test Loss: 2.435567

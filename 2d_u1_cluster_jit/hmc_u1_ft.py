@@ -78,7 +78,8 @@ class HMC_U1_FT:
             The action value.
         """
         theta_P = plaq_from_field(theta)
-        action_value = (-self.beta) * torch.sum(torch.cos(theta_P))
+        thetaP_wrapped = regularize(theta_P)
+        action_value = (-self.beta) * torch.sum(torch.cos(thetaP_wrapped))
         
         # Check if action_value is a scalar
         assert action_value.dim() == 0, "Action value is not a scalar."
@@ -93,7 +94,7 @@ class HMC_U1_FT:
         Parameters:
         -----------
         theta_new : torch.Tensor
-            The new field configuration after transformation.
+            The new field configuration before transformation.
 
         Returns:
         --------
@@ -101,8 +102,6 @@ class HMC_U1_FT:
             The transformed action value.
         """
         theta_ori = self.field_transformation(theta_new)
-        theta_ori = regularize(theta_ori)
-
         original_action_val = self.original_action(theta_ori)
 
         jacobian_log_det = self.compute_jac_logdet(theta_new.unsqueeze(0)) # [1, 2, L, L]
@@ -113,6 +112,7 @@ class HMC_U1_FT:
         assert new_action_val.dim() == 0, "Transformed action value is not a scalar."
 
         return new_action_val
+    
 
     def new_force(self, theta_new):
         """
@@ -176,11 +176,11 @@ class HMC_U1_FT:
             The updated field configuration, acceptance flag, and Hamiltonian value.
         """
         pi = torch.randn_like(theta, device=self.device)
-        action_value = self.new_action(theta)
+        action_value = self.new_action(theta) 
         H_old = action_value + 0.5 * torch.sum(pi**2)
 
         new_theta, new_pi = self.leapfrog(theta.clone(), pi.clone())
-        new_action_value = self.new_action(new_theta)
+        new_action_value = self.new_action(new_theta) 
         H_new = new_action_value + 0.5 * torch.sum(new_pi**2)
 
         delta_H = H_new - H_old
@@ -285,6 +285,7 @@ class HMC_U1_FT:
         acceptance_count = 0
 
         for _ in tqdm(range(self.n_thermalization_steps), desc="Thermalizing"):
+            theta_new = regularize(theta_new)
             theta_ori = self.field_transformation(theta_new)
             theta_ori = regularize(theta_ori)
             plaq = plaq_mean_from_field(theta_ori).item()
@@ -317,6 +318,7 @@ class HMC_U1_FT:
             list of topological charges, and list of Hamiltonian values.
         """
 
+        theta_ori_ls = []
         plaq_ls = []
         hamiltonians = []
         acceptance_count = 0
@@ -325,9 +327,12 @@ class HMC_U1_FT:
         for i in tqdm(range(n_iterations), desc="Running HMC"):
             theta, accepted, H_val = self.metropolis_step(theta)
             
+            
             if i % store_interval == 0:  # Only store data at specific intervals
-                theta_ori = self.field_transformation(theta)
+                theta = regularize(theta)
+                theta_ori = self.field_transformation(theta) 
                 theta_ori = regularize(theta_ori)
+                theta_ori_ls.append(theta_ori)
                 plaq = plaq_mean_from_field(theta_ori).item()
                 plaq_ls.append(plaq)
                 hamiltonians.append(H_val)
@@ -338,7 +343,7 @@ class HMC_U1_FT:
 
         acceptance_rate = acceptance_count / n_iterations
         return (
-            theta,
+            theta_ori_ls,
             plaq_ls,
             acceptance_rate,
             topological_charges,
