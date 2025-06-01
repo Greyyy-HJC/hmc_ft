@@ -26,8 +26,8 @@ torch_logger.propagate = False
 
 
 from utils import plaq_from_field_batch, rect_from_field_batch, get_field_mask, get_plaq_mask, get_rect_mask
-# from cnn_model import jointCNN
-from cnn_model_opt import jointCNN
+from cnn_model import jointCNN
+# from cnn_model_opt import jointCNN
 
 class FieldTransformation:
     """Neural network based field transformation"""
@@ -587,7 +587,7 @@ class FieldTransformation:
         if train_beta is None:
             checkpoint_path = f'models/best_model_L{self.L}.pt'
         else:
-            checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta}.pt'
+            checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta:.1f}.pt'
         try:
             checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
             
