@@ -1,0 +1,44 @@
+>>> No Field Transformation HMC Simulation: 
+>>> Starting thermalization...
+>>> Initial thermalization...
+>>> Using step size: 0.10
+>>> Thermalization completed in 4.77 seconds
+>>> Starting simulation...
+>>> Simulation completed in 12.04 seconds
+>>> Total time (Standard HMC): 16.81 seconds
+>>> Theoretical plaquette:  0.9123593043529149
+>>> Mean plaq:  0.9125117877847515
+>>> Std of mean plaq:  0.0002489463542659509
+Thermalization acceptance rate: 0.7200
+Acceptance rate: 0.7520
+>>> Neural Network Field Transformation HMC Simulation: 
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+>>> Loading trained model
+Removing 'module.' prefix from state dict for model 0
+Removing 'module.' prefix from state dict for model 1
+Removing 'module.' prefix from state dict for model 2
+Removing 'module.' prefix from state dict for model 3
+Removing 'module.' prefix from state dict for model 4
+Removing 'module.' prefix from state dict for model 5
+Removing 'module.' prefix from state dict for model 6
+Removing 'module.' prefix from state dict for model 7
+Loaded best models from epoch 7 with loss 0.352776
+>>> Model loaded successfully in 0.01 seconds
+>>> Starting thermalization with field transformation...
+>>> Initial thermalization...
+Using step size: 0.15
+>>> Thermalization with field transformation completed in 992.30 seconds
+>>> Starting simulation with field transformation...
+>>> Simulation with field transformation completed in 2546.34 seconds
+>>> Total time (Field Transformation HMC): 3538.65 seconds
+>>> Theoretical plaquette:  0.9123593043529149
+>>> Mean plaq:  1.0
+>>> Std of mean plaq:  0.0
+Thermalization acceptance rate: 0.0000
+Acceptance rate: 0.0000
+
+>>> Timing Comparison:
+Standard HMC - Thermalization: 4.77s, Simulation: 12.04s, Total: 16.81s
+FT HMC - Model Loading: 0.01s, Thermalization: 992.30s, Simulation: 2546.34s, Total: 3538.65s
+Speed ratio (Standard HMC / FT HMC simulation time): 0.00x
