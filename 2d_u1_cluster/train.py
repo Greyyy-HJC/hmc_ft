@@ -43,21 +43,38 @@ parser.add_argument('--if_continue', action='store_true',
 
 args = parser.parse_args()
 
+# Print all arguments
+print("="*60)
+print(">>> Arguments:")
+print(f"Lattice size: {args.lattice_size}")
+print(f"Minimum beta: {args.min_beta}")
+print(f"Maximum beta: {args.max_beta}")
+print(f"Beta gap: {args.beta_gap}")
+print(f"Number of epochs: {args.n_epochs}")
+print(f"Batch size: {args.batch_size}")
+print(f"Number of subsets: {args.n_subsets}")
+print(f"Number of workers: {args.n_workers}")
+print(f"Random seed: {args.rand_seed}")
+print(f"Identity initialization: {args.if_identity_init}")
+print(f"Check Jacobian: {args.if_check_jac}")
+print(f"Continue training: {args.if_continue}")
+print("="*60)
+
+
 # Print info
 print(f"PyTorch version: {torch.__version__}")
 print(f"CUDA available: {torch.cuda.is_available()}")
 
-if torch.cuda.is_available():
-    print(f"CUDA devices: {torch.cuda.device_count()}")
-    print(f"CUDA device name: {torch.cuda.get_device_name(0)}")
-    device = 'cuda'
-else:
-    print("Using CPU only")
-    device = 'cpu'
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA is not available. This program requires GPU to run.")
+
+print(f"CUDA devices: {torch.cuda.device_count()}")
+print(f"CUDA device name: {torch.cuda.get_device_name(0)}")
+device = 'cuda'
     
 # Set random seed
 set_seed(args.rand_seed)
-save_tag = f"{args.rand_seed}"
+save_tag = f"seed{args.rand_seed}"
 
 # Parameters
 lattice_size = args.lattice_size
@@ -93,7 +110,7 @@ for train_beta in np.arange(args.min_beta, args.max_beta + args.beta_gap, args.b
     beta_start_time = time.time()
     
     # load the data
-    data = np.load(f'dump/theta_ori_L{lattice_size}_beta{train_beta}.npy')
+    data = np.load(f'gauges/theta_ori_L{lattice_size}_beta{train_beta}.npy')
     tensor_data = torch.from_numpy(data).float().to(device)
     print(f"Loaded data shape: {tensor_data.shape}")
 

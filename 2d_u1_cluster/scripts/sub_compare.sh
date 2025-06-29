@@ -1,16 +1,16 @@
 #!/bin/bash -l
 
-# Use 128 CPU core on 1 node
-
-#PBS -N hmc
-#PBS -A L-PARTON
-#PBS -l select=1:ncpus=128:mpiprocs=1:ompthreads=128:mem=128gb
+#PBS -N compare
+#PBS -A fthmc
+#PBS -l select=1
+#PBS -l filesystems=home:eagle
+#PBS -q by-gpu
 #PBS -j oe
-#PBS -l walltime=12:00:00
-#PBS -o /lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster/logs/compare_L64_b6_seed2008.log
+#PBS -l walltime=0:30:00
+#PBS -o /eagle/fthmc/run/hmc_ft/2d_u1_cluster/logs/compare_test_opt_3.log
 
 # switch to the submit directory
-WORKDIR=/lcrc/project/L-parton/jinchen/hmc_ft/2d_u1_cluster
+WORKDIR=/eagle/fthmc/run/hmc_ft/2d_u1_cluster
 cd $WORKDIR
 
 # output node info
@@ -21,13 +21,16 @@ NODES=$(cat $PBS_NODEFILE | uniq | wc -l)
 TASKS=$(wc -l < $PBS_NODEFILE)
 echo "${NODES}n*${TASKS}t"
 
+# Get GPU info
+nvidia-smi
+nvcc --version
+
 # show current time
 start_time=$(date +"%Y-%m-%d %H:%M:%S")
 echo "Start time: $start_time"
 
 # Initialize conda properly
-source /lcrc/project/L-parton/jinchen/miniconda3/etc/profile.d/conda.sh
-conda activate ml
+source /eagle/fthmc/env/py_env.sh
 
 # check python version
 python --version
@@ -35,8 +38,8 @@ python --version
 # check python path
 echo "Python path: $(which python)"
 
-# run train.py
-python compare.py --ft_step_size 0.05 --seed 2008
+# run
+python compare.py --lattice_size 64 --n_configs 512 --beta 6 --train_beta 2 --step_size 0.06 --ft_step_size 0.05 --rand_seed 2008 --device 'cuda'
 
 # calculate total time
 end_time=$(date +"%Y-%m-%d %H:%M:%S")

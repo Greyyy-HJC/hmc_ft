@@ -27,7 +27,6 @@ torch_logger.propagate = False
 
 from utils import plaq_from_field_batch, rect_from_field_batch, get_field_mask, get_plaq_mask, get_rect_mask
 from cnn_model import jointCNN
-# from cnn_model_opt import jointCNN
 
 class FieldTransformation:
     """Neural network based field transformation"""

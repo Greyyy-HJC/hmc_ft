@@ -31,7 +31,9 @@ store_interval = args.store_interval
 n_iterations = store_interval * args.n_configs
 
 # Initialize device
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA is not available. This program requires GPU to run.")
+device = 'cuda'
 
 # Set default type
 torch.set_default_dtype(torch.float32)
