@@ -2,8 +2,8 @@
 import torch
 from utils import set_seed
 from utils import plaq_from_field_batch
-from field_trans_opt import FieldTransformation
-# from field_trans import FieldTransformation
+# from field_trans_opt import FieldTransformation
+from field_trans import FieldTransformation
 
 def main():
     # Fixed parameters

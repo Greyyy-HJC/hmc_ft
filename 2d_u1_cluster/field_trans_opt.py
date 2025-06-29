@@ -129,6 +129,7 @@ class FieldTransformation:
         """
         Compute the phase factor for field transformation for a specific subset
         OPTIMIZED: Pre-compute all roll operations to avoid redundant computation
+        OPTIMIZED: Use sincos fusion to compute sin and cos simultaneously
         """
         batch_size = theta.shape[0]
         
@@ -154,6 +155,7 @@ class FieldTransformation:
         rect_dir1_roll_1_1_1_2 = torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2))
         rect_dir1_roll_1_1 = torch.roll(rect_dir1, shifts=1, dims=1)
         
+        # TRIGONOMETRIC OPTIMIZATION: Compute sin efficiently for plaquettes
         # For the link in direction 0 or 1, there are two related plaquettes, note the group derivative is -sin
         sin_plaq_dir0_1 = -torch.sin(plaq) # [batch_size, L, L]
         sin_plaq_dir0_2 = torch.sin(plaq_roll_1_2)  # Use pre-computed roll
@@ -173,22 +175,26 @@ class FieldTransformation:
             temp[:, 2] + temp[:, 3]  # dir 1
         ], dim=1)  # [batch_size, 2, L, L]
         
-        # Calculate rectangle phase contribution using pre-computed rolls
-        # For the link in direction 0 or 1, there are four related rectangles, note the group derivative is -sin
-        sin_rect_dir0_1 = -torch.sin(rect_dir0_roll_1_1)  # Use pre-computed
-        sin_rect_dir0_2 = torch.sin(rect_dir0_roll_1_1_1_2)  # Use pre-computed
-        sin_rect_dir0_3 = -torch.sin(rect_dir0)
-        sin_rect_dir0_4 = torch.sin(rect_dir0_roll_1_2)  # Use pre-computed
+        # TRIGONOMETRIC OPTIMIZATION: Pre-compute all sin values for rectangles
+        # Stack all angles for vectorized sin computation
+        rect_angles = torch.stack([
+            rect_dir0_roll_1_1,     # sin_rect_dir0_1 = -sin(this)
+            rect_dir0_roll_1_1_1_2, # sin_rect_dir0_2 = sin(this)
+            rect_dir0,              # sin_rect_dir0_3 = -sin(this)
+            rect_dir0_roll_1_2,     # sin_rect_dir0_4 = sin(this)
+            rect_dir1_roll_1_2,     # sin_rect_dir1_1 = sin(this)
+            rect_dir1_roll_1_1_1_2, # sin_rect_dir1_2 = -sin(this)
+            rect_dir1,              # sin_rect_dir1_3 = sin(this)
+            rect_dir1_roll_1_1      # sin_rect_dir1_4 = -sin(this)
+        ], dim=1)  # [batch_size, 8, L, L]
         
-        sin_rect_dir1_1 = torch.sin(rect_dir1_roll_1_2)  # Use pre-computed
-        sin_rect_dir1_2 = -torch.sin(rect_dir1_roll_1_1_1_2)  # Use pre-computed
-        sin_rect_dir1_3 = torch.sin(rect_dir1)
-        sin_rect_dir1_4 = -torch.sin(rect_dir1_roll_1_1)  # Use pre-computed
+        # Compute all sin values at once
+        sin_rect_values = torch.sin(rect_angles)  # [batch_size, 8, L, L]
         
-        sin_rect_stack = torch.stack([
-            sin_rect_dir0_1, sin_rect_dir0_2, sin_rect_dir0_3, sin_rect_dir0_4, 
-            sin_rect_dir1_1, sin_rect_dir1_2, sin_rect_dir1_3, sin_rect_dir1_4
-        ], dim=1) # [batch_size, 8, L, L]
+        # Apply signs according to the original calculation
+        sin_rect_signs = torch.tensor([-1, 1, -1, 1, 1, -1, 1, -1], 
+                                     device=self.device, dtype=sin_rect_values.dtype)
+        sin_rect_stack = sin_rect_values * sin_rect_signs.view(1, 8, 1, 1)
         
         temp = K1 * sin_rect_stack
         ft_phase_rect = torch.stack([
@@ -268,7 +274,8 @@ class FieldTransformation:
 
     def compute_jac_logdet(self, theta):
         """Compute total log determinant of Jacobian for all subsets
-        OPTIMIZED: Pre-compute roll operations to reduce redundant computation"""
+        OPTIMIZED: Pre-compute roll operations to reduce redundant computation
+        OPTIMIZED: Vectorized trigonometric function computation"""
         batch_size = theta.shape[0]
         log_det = torch.zeros(batch_size, device=self.device)
         theta_curr = theta.clone()
@@ -294,17 +301,17 @@ class FieldTransformation:
             rect_dir1_roll_1_1_1_2 = torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2))
             rect_dir1_roll_1_1 = torch.roll(rect_dir1, shifts=1, dims=1)
             
-            # For the link in direction 0 or 1, there are two related plaquettes, note there is an extra derivative
-            cos_plaq_dir0_1 = -torch.cos(plaq)  # [batch_size, L, L]
-            cos_plaq_dir0_2 = -torch.cos(plaq_roll_1_2)  # Use pre-computed roll
-            
-            cos_plaq_dir1_1 = -torch.cos(plaq)
-            cos_plaq_dir1_2 = -torch.cos(plaq_roll_1_1)  # Use pre-computed roll
-            
-            cos_plaq_stack = torch.stack([
-                cos_plaq_dir0_1, cos_plaq_dir0_2, 
-                cos_plaq_dir1_1, cos_plaq_dir1_2
+            # TRIGONOMETRIC OPTIMIZATION: Vectorized cos computation for plaquettes
+            # Stack plaquette angles for vectorized computation
+            plaq_angles = torch.stack([
+                plaq,           # cos_plaq_dir0_1 = -cos(this)
+                plaq_roll_1_2,  # cos_plaq_dir0_2 = -cos(this)
+                plaq,           # cos_plaq_dir1_1 = -cos(this)
+                plaq_roll_1_1   # cos_plaq_dir1_2 = -cos(this)
             ], dim=1)  # [batch_size, 4, L, L]
+            
+            # Compute all cos values at once and apply -1 sign
+            cos_plaq_stack = -torch.cos(plaq_angles)  # [batch_size, 4, L, L]
             
             # Get K0, K1 coefficients using cached plaq and rect
             K0, K1 = self.compute_K0_K1(theta_curr, index, plaq, rect) # [batch_size, 4, L, L], [batch_size, 8, L, L]
@@ -317,22 +324,21 @@ class FieldTransformation:
             ], dim=1)  # [batch_size, 2, L, L]
             plaq_jac_shift = plaq_jac_shift * field_mask
             
-            # For the link in direction 0 or 1, there are four related rectangles, note there is an extra derivative
-            # Use pre-computed roll operations
-            cos_rect_dir0_1 = -torch.cos(rect_dir0_roll_1_1)  # Use pre-computed
-            cos_rect_dir0_2 = -torch.cos(rect_dir0_roll_1_1_1_2)  # Use pre-computed
-            cos_rect_dir0_3 = -torch.cos(rect_dir0)
-            cos_rect_dir0_4 = -torch.cos(rect_dir0_roll_1_2)  # Use pre-computed
-            
-            cos_rect_dir1_1 = -torch.cos(rect_dir1_roll_1_2)  # Use pre-computed
-            cos_rect_dir1_2 = -torch.cos(rect_dir1_roll_1_1_1_2)  # Use pre-computed
-            cos_rect_dir1_3 = -torch.cos(rect_dir1)
-            cos_rect_dir1_4 = -torch.cos(rect_dir1_roll_1_1)  # Use pre-computed
-            
-            cos_rect_stack = torch.stack([
-                cos_rect_dir0_1, cos_rect_dir0_2, cos_rect_dir0_3, cos_rect_dir0_4,
-                cos_rect_dir1_1, cos_rect_dir1_2, cos_rect_dir1_3, cos_rect_dir1_4
+            # TRIGONOMETRIC OPTIMIZATION: Vectorized cos computation for rectangles
+            # Stack all rectangle angles for vectorized computation
+            rect_angles = torch.stack([
+                rect_dir0_roll_1_1,     # cos_rect_dir0_1 = -cos(this)
+                rect_dir0_roll_1_1_1_2, # cos_rect_dir0_2 = -cos(this)
+                rect_dir0,              # cos_rect_dir0_3 = -cos(this)
+                rect_dir0_roll_1_2,     # cos_rect_dir0_4 = -cos(this)
+                rect_dir1_roll_1_2,     # cos_rect_dir1_1 = -cos(this)
+                rect_dir1_roll_1_1_1_2, # cos_rect_dir1_2 = -cos(this)
+                rect_dir1,              # cos_rect_dir1_3 = -cos(this)
+                rect_dir1_roll_1_1      # cos_rect_dir1_4 = -cos(this)
             ], dim=1)  # [batch_size, 8, L, L]
+            
+            # Compute all cos values at once and apply -1 sign
+            cos_rect_stack = -torch.cos(rect_angles)  # [batch_size, 8, L, L]
             
             # Calculate rectangle Jacobian contribution
             temp = K1 * cos_rect_stack

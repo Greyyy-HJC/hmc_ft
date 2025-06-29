@@ -7,7 +7,7 @@
 #PBS -q by-gpu
 #PBS -j oe
 #PBS -l walltime=0:30:00
-#PBS -o /eagle/fthmc/run/hmc_ft/2d_u1_cluster/logs/compare_test_opt_3.log
+#PBS -o /eagle/fthmc/run/hmc_ft/2d_u1_cluster/logs/compare_test_opt_4.log
 
 # switch to the submit directory
 WORKDIR=/eagle/fthmc/run/hmc_ft/2d_u1_cluster

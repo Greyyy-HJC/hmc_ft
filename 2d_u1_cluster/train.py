@@ -7,7 +7,7 @@ import argparse
 import time
 import datetime
 from utils import set_seed
-from field_trans import FieldTransformation
+from field_trans_opt import FieldTransformation
 from torch.nn.parallel import DataParallel
 
 # Record program start time

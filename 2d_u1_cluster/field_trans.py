@@ -220,7 +220,7 @@ class FieldTransformation:
         max_iter = 100
         tol = 1e-6
         
-        for index in range(self.n_subsets):
+        for index in reversed(range(self.n_subsets)):
             theta_iter = theta_curr.clone()
             
             # Fixed-point iteration to find inverse transformation for this subset
@@ -229,7 +229,7 @@ class FieldTransformation:
                 inv_phase = -self.ft_phase_compiled(theta_iter, index)
                 
                 # Update theta using the inverse phase
-                theta_next = theta_curr - inv_phase
+                theta_next = theta_curr + inv_phase
                 
                 # Check convergence
                 diff = torch.norm(theta_next - theta_iter) / torch.norm(theta_iter)
