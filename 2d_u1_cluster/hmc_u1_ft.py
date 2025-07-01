@@ -159,6 +159,11 @@ class HMC_U1_FT:
             pi_ = pi_ - dt * self.new_force(theta_)
         theta_ = theta_ + 0.5 * dt * pi_
         theta_ = regularize(theta_)
+        
+        #TODO: MEMORY OPTIMIZED
+        theta_ = theta_.detach()
+        pi_ = pi_.detach()
+        
         return theta_, pi_
 
     def metropolis_step(self, theta):
@@ -332,7 +337,8 @@ class HMC_U1_FT:
                 theta = regularize(theta)
                 theta_ori = self.field_transformation(theta) 
                 theta_ori = regularize(theta_ori)
-                theta_ori_ls.append(theta_ori)
+                #TODO: Move results to CPU to save GPU memory
+                theta_ori_ls.append(theta_ori.cpu().clone())
                 plaq = plaq_mean_from_field(theta_ori).item()
                 plaq_ls.append(plaq)
                 hamiltonians.append(H_val)
@@ -340,6 +346,10 @@ class HMC_U1_FT:
 
             if accepted:
                 acceptance_count += 1
+            
+            #TODO: Memory cleanup every 50 steps to prevent accumulation
+            if (i + 1) % 50 == 0 and torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         acceptance_rate = acceptance_count / n_iterations
         return (

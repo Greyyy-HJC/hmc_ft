@@ -8,7 +8,7 @@ import time
 import argparse
 from hmc_u1 import HMC_U1
 from hmc_u1_ft import HMC_U1_FT
-from field_trans import FieldTransformation
+from field_trans_opt import FieldTransformation
 from utils import hmc_summary_bootstrap, set_seed
 
 parser = argparse.ArgumentParser(description='Parameters for Comparison')
@@ -89,7 +89,7 @@ print(f">>> Total time (Standard HMC): {therm_time + run_time:.2f} seconds")
 
 # Compute autocorrelation of topological charges
 hmc_fig = hmc_summary_bootstrap(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, therm_acceptance_rate, acceptance_rate)
-hmc_fig.savefig(f'plots/comparison_hmc_L{lattice_size}_beta{beta:.1f}.pdf', transparent=True)
+hmc_fig.savefig(f'plots/comparison_opt_hmc_L{lattice_size}_beta{beta:.1f}.pdf', transparent=True)
 del config_ls # release memory
 
 # %%
@@ -141,7 +141,7 @@ print(f">>> Total time (Field Transformation HMC): {model_load_time + ft_therm_t
 
 # Compute autocorrelation of topological charges
 hmc_fig = hmc_summary_bootstrap(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, therm_acceptance_rate, acceptance_rate)
-hmc_fig.savefig(f'plots/comparison_hmc_ft_L{lattice_size}_beta{beta:.1f}_train_beta{train_beta:.1f}_ftstep{ft_step_size:.2f}_seed{save_tag}.pdf', transparent=True)
+hmc_fig.savefig(f'plots/comparison_opt_hmc_ft_L{lattice_size}_beta{beta:.1f}_train_beta{train_beta:.1f}_ftstep{ft_step_size:.2f}_seed{save_tag}.pdf', transparent=True)
 del final_config # release memory
 
 # Print timing comparison

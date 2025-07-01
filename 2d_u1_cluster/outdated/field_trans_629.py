@@ -24,6 +24,7 @@ torch_logger.setLevel(logging.ERROR)  # Only show error level logs
 torch_logger.propagate = False
 
 
+
 from utils import plaq_from_field_batch, rect_from_field_batch, get_field_mask, get_plaq_mask, get_rect_mask
 from cnn_model import jointCNN
 
@@ -97,22 +98,24 @@ class FieldTransformation:
             self.compute_action_compiled = self.compute_action
             print("torch.compile not available, using standard functions")
 
-    def compute_K0_K1(self, theta, index, plaq, rect):
+    def compute_K0_K1(self, theta, index):
         """
-        OPTIMIZED: Compute K0 and K1 using cached plaq and rect values
-        Input: theta with shape [batch_size, 2, L, L], cached plaq and rect
+        Compute K0 and K1 using the joint model
+        Input: theta with shape [batch_size, 2, L, L]
         Output: K0 with shape [batch_size, 4, L, L], K1 with shape [batch_size, 8, L, L]
         """
         batch_size = theta.shape[0]
         
-        # Calculate plaq features using cached plaq
+        # Calculate plaq features
+        plaq = plaq_from_field_batch(theta)
         plaq_mask = get_plaq_mask(index, batch_size, self.L).to(self.device)
         plaq_masked = plaq * plaq_mask
         plaq_sin_feature = torch.sin(plaq_masked)
         plaq_cos_feature = torch.cos(plaq_masked)
         plaq_features = torch.stack([plaq_sin_feature, plaq_cos_feature], dim=1)
         
-        # Calculate rect features using cached rect
+        # Calculate rect features
+        rect = rect_from_field_batch(theta)
         rect_mask = get_rect_mask(index, batch_size, self.L).to(self.device)
         rect_masked = rect * rect_mask
         rect_sin_feature = torch.sin(rect_masked)
@@ -120,6 +123,7 @@ class FieldTransformation:
         rect_features = torch.cat([rect_sin_feature, rect_cos_feature], dim=1)
         
         # Use joint model to generate K0 and K1
+        # Shape of K0: [batch_size, 4, L, L], Shape of K1: [batch_size, 8, L, L]
         K0, K1 = self.models[index](plaq_features, rect_features)
         
         return K0, K1
@@ -127,45 +131,20 @@ class FieldTransformation:
     def ft_phase(self, theta, index):
         """
         Compute the phase factor for field transformation for a specific subset
-        OPTIMIZED: Pre-compute all roll operations to avoid redundant computation
-        OPTIMIZED: Use sincos fusion to compute sin and cos simultaneously
         """
         batch_size = theta.shape[0]
-        
-        # OPTIMIZATION: Cache plaq and rect calculations to avoid redundant computation
         plaq = plaq_from_field_batch(theta) # [batch_size, L, L]
-        rect = rect_from_field_batch(theta) # [batch_size, 2, L, L]
         
-        # ROLL OPTIMIZATION: Pre-compute all rolled versions to avoid redundant roll operations
-        # For plaquettes
-        plaq_roll_1_2 = torch.roll(plaq, shifts=1, dims=2)    # Used by sin_plaq_dir0_2
-        plaq_roll_1_1 = torch.roll(plaq, shifts=1, dims=1)    # Used by sin_plaq_dir1_2
-        
-        # For rectangles
-        rect_dir0 = rect[:, 0, :, :] # [batch_size, L, L]
-        rect_dir1 = rect[:, 1, :, :] # [batch_size, L, L]
-        
-        # Pre-compute all rect roll operations
-        rect_dir0_roll_1_1 = torch.roll(rect_dir0, shifts=1, dims=1)
-        rect_dir0_roll_1_1_1_2 = torch.roll(rect_dir0, shifts=(1, 1), dims=(1, 2))
-        rect_dir0_roll_1_2 = torch.roll(rect_dir0, shifts=1, dims=2)
-        
-        rect_dir1_roll_1_2 = torch.roll(rect_dir1, shifts=1, dims=2)
-        rect_dir1_roll_1_1_1_2 = torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2))
-        rect_dir1_roll_1_1 = torch.roll(rect_dir1, shifts=1, dims=1)
-        
-        # TRIGONOMETRIC OPTIMIZATION: Compute sin efficiently for plaquettes
         # For the link in direction 0 or 1, there are two related plaquettes, note the group derivative is -sin
         sin_plaq_dir0_1 = -torch.sin(plaq) # [batch_size, L, L]
-        sin_plaq_dir0_2 = torch.sin(plaq_roll_1_2)  # Use pre-computed roll
+        sin_plaq_dir0_2 = torch.sin(torch.roll(plaq, shifts=1, dims=2))
         
         sin_plaq_dir1_1 = torch.sin(plaq)
-        sin_plaq_dir1_2 = -torch.sin(plaq_roll_1_1)  # Use pre-computed roll
+        sin_plaq_dir1_2 = -torch.sin(torch.roll(plaq, shifts=1, dims=1))
         
         sin_plaq_stack = torch.stack([sin_plaq_dir0_1, sin_plaq_dir0_2, sin_plaq_dir1_1, sin_plaq_dir1_2], dim=1) # [batch_size, 4, L, L]
         
-        # OPTIMIZATION: Pass cached plaq and rect to avoid recomputation
-        K0, K1 = self.compute_K0_K1(theta, index, plaq, rect) # [batch_size, 4, L, L], [batch_size, 8, L, L]
+        K0, K1 = self.compute_K0_K1(theta, index) # [batch_size, 4, L, L], [batch_size, 8, L, L]
         
         # Calculate plaquette phase contribution
         temp = K0 * sin_plaq_stack
@@ -174,26 +153,26 @@ class FieldTransformation:
             temp[:, 2] + temp[:, 3]  # dir 1
         ], dim=1)  # [batch_size, 2, L, L]
         
-        # TRIGONOMETRIC OPTIMIZATION: Pre-compute all sin values for rectangles
-        # Stack all angles for vectorized sin computation
-        rect_angles = torch.stack([
-            rect_dir0_roll_1_1,     # sin_rect_dir0_1 = -sin(this)
-            rect_dir0_roll_1_1_1_2, # sin_rect_dir0_2 = sin(this)
-            rect_dir0,              # sin_rect_dir0_3 = -sin(this)
-            rect_dir0_roll_1_2,     # sin_rect_dir0_4 = sin(this)
-            rect_dir1_roll_1_2,     # sin_rect_dir1_1 = sin(this)
-            rect_dir1_roll_1_1_1_2, # sin_rect_dir1_2 = -sin(this)
-            rect_dir1,              # sin_rect_dir1_3 = sin(this)
-            rect_dir1_roll_1_1      # sin_rect_dir1_4 = -sin(this)
-        ], dim=1)  # [batch_size, 8, L, L]
+        # Calculate rectangle phase contribution
+        rect = rect_from_field_batch(theta) # [batch_size, 2, L, L]
+        rect_dir0 = rect[:, 0, :, :] # [batch_size, L, L]
+        rect_dir1 = rect[:, 1, :, :] # [batch_size, L, L]
         
-        # Compute all sin values at once
-        sin_rect_values = torch.sin(rect_angles)  # [batch_size, 8, L, L]
+        # For the link in direction 0 or 1, there are four related rectangles, note the group derivative is -sin
+        sin_rect_dir0_1 = -torch.sin(torch.roll(rect_dir0, shifts=1, dims=1)) # [batch_size, L, L]
+        sin_rect_dir0_2 = torch.sin(torch.roll(rect_dir0, shifts=(1, 1), dims=(1, 2)))
+        sin_rect_dir0_3 = -torch.sin(rect_dir0)
+        sin_rect_dir0_4 = torch.sin(torch.roll(rect_dir0, shifts=1, dims=2))
         
-        # Apply signs according to the original calculation
-        sin_rect_signs = torch.tensor([-1, 1, -1, 1, 1, -1, 1, -1], 
-                                     device=self.device, dtype=sin_rect_values.dtype)
-        sin_rect_stack = sin_rect_values * sin_rect_signs.view(1, 8, 1, 1)
+        sin_rect_dir1_1 = torch.sin(torch.roll(rect_dir1, shifts=1, dims=2))
+        sin_rect_dir1_2 = -torch.sin(torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2)))
+        sin_rect_dir1_3 = torch.sin(rect_dir1)
+        sin_rect_dir1_4 = -torch.sin(torch.roll(rect_dir1, shifts=1, dims=1))
+        
+        sin_rect_stack = torch.stack([
+            sin_rect_dir0_1, sin_rect_dir0_2, sin_rect_dir0_3, sin_rect_dir0_4, 
+            sin_rect_dir1_1, sin_rect_dir1_2, sin_rect_dir1_3, sin_rect_dir1_4
+        ], dim=1) # [batch_size, 8, L, L]
         
         temp = K1 * sin_rect_stack
         ft_phase_rect = torch.stack([
@@ -272,10 +251,7 @@ class FieldTransformation:
         return self.inverse(theta.unsqueeze(0)).squeeze(0)
 
     def compute_jac_logdet(self, theta):
-        """Compute total log determinant of Jacobian for all subsets
-        OPTIMIZED: Pre-compute roll operations to reduce redundant computation
-        OPTIMIZED: Vectorized trigonometric function computation
-        MEMORY OPTIMIZED: Clear intermediate tensors to prevent OOM"""
+        """Compute total log determinant of Jacobian for all subsets"""
         batch_size = theta.shape[0]
         log_det = torch.zeros(batch_size, device=self.device)
         theta_curr = theta.clone()
@@ -289,35 +265,20 @@ class FieldTransformation:
             rect_dir0 = rect[:, 0, :, :]  # [batch_size, L, L]
             rect_dir1 = rect[:, 1, :, :]  # [batch_size, L, L]
             
-            # ROLL OPTIMIZATION: Pre-compute all rolled versions for Jacobian computation
-            plaq_roll_1_2 = torch.roll(plaq, shifts=1, dims=2)
-            plaq_roll_1_1 = torch.roll(plaq, shifts=1, dims=1)
+            # For the link in direction 0 or 1, there are two related plaquettes, note there is an extra derivative
+            cos_plaq_dir0_1 = -torch.cos(plaq)  # [batch_size, L, L]
+            cos_plaq_dir0_2 = -torch.cos(torch.roll(plaq, shifts=1, dims=2))
             
-            rect_dir0_roll_1_1 = torch.roll(rect_dir0, shifts=1, dims=1)
-            rect_dir0_roll_1_1_1_2 = torch.roll(rect_dir0, shifts=(1, 1), dims=(1, 2))
-            rect_dir0_roll_1_2 = torch.roll(rect_dir0, shifts=1, dims=2)
+            cos_plaq_dir1_1 = -torch.cos(plaq)
+            cos_plaq_dir1_2 = -torch.cos(torch.roll(plaq, shifts=1, dims=1))
             
-            rect_dir1_roll_1_2 = torch.roll(rect_dir1, shifts=1, dims=2)
-            rect_dir1_roll_1_1_1_2 = torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2))
-            rect_dir1_roll_1_1 = torch.roll(rect_dir1, shifts=1, dims=1)
-            
-            # TRIGONOMETRIC OPTIMIZATION: Vectorized cos computation for plaquettes
-            # Stack plaquette angles for vectorized computation
-            plaq_angles = torch.stack([
-                plaq,           # cos_plaq_dir0_1 = -cos(this)
-                plaq_roll_1_2,  # cos_plaq_dir0_2 = -cos(this)
-                plaq,           # cos_plaq_dir1_1 = -cos(this)
-                plaq_roll_1_1   # cos_plaq_dir1_2 = -cos(this)
+            cos_plaq_stack = torch.stack([
+                cos_plaq_dir0_1, cos_plaq_dir0_2, 
+                cos_plaq_dir1_1, cos_plaq_dir1_2
             ], dim=1)  # [batch_size, 4, L, L]
             
-            # Compute all cos values at once and apply -1 sign
-            cos_plaq_stack = -torch.cos(plaq_angles)  # [batch_size, 4, L, L]
-            
-            #TODO: Clear intermediate variables
-            del plaq_angles, plaq_roll_1_2, plaq_roll_1_1
-            
-            # Get K0, K1 coefficients using cached plaq and rect (requires grad)
-            K0, K1 = self.compute_K0_K1(theta_curr, index, plaq, rect) # [batch_size, 4, L, L], [batch_size, 8, L, L]
+            # Get K0, K1 coefficients
+            K0, K1 = self.compute_K0_K1(theta_curr, index) # [batch_size, 4, L, L], [batch_size, 8, L, L]
             
             # Calculate plaquette Jacobian contribution
             temp = K0 * cos_plaq_stack
@@ -327,28 +288,21 @@ class FieldTransformation:
             ], dim=1)  # [batch_size, 2, L, L]
             plaq_jac_shift = plaq_jac_shift * field_mask
             
-            #TODO: Clear intermediate variables
-            del temp, cos_plaq_stack, K0
+            # For the link in direction 0 or 1, there are four related rectangles, note there is an extra derivative
+            cos_rect_dir0_1 = -torch.cos(torch.roll(rect_dir0, shifts=1, dims=1))  # [batch_size, L, L]
+            cos_rect_dir0_2 = -torch.cos(torch.roll(rect_dir0, shifts=(1, 1), dims=(1, 2)))
+            cos_rect_dir0_3 = -torch.cos(rect_dir0)
+            cos_rect_dir0_4 = -torch.cos(torch.roll(rect_dir0, shifts=1, dims=2))
             
-            # TRIGONOMETRIC OPTIMIZATION: Vectorized cos computation for rectangles
-            # Stack all rectangle angles for vectorized computation
-            rect_angles = torch.stack([
-                rect_dir0_roll_1_1,     # cos_rect_dir0_1 = -cos(this)
-                rect_dir0_roll_1_1_1_2, # cos_rect_dir0_2 = -cos(this)
-                rect_dir0,              # cos_rect_dir0_3 = -cos(this)
-                rect_dir0_roll_1_2,     # cos_rect_dir0_4 = -cos(this)
-                rect_dir1_roll_1_2,     # cos_rect_dir1_1 = -cos(this)
-                rect_dir1_roll_1_1_1_2, # cos_rect_dir1_2 = -cos(this)
-                rect_dir1,              # cos_rect_dir1_3 = -cos(this)
-                rect_dir1_roll_1_1      # cos_rect_dir1_4 = -cos(this)
+            cos_rect_dir1_1 = -torch.cos(torch.roll(rect_dir1, shifts=1, dims=2))
+            cos_rect_dir1_2 = -torch.cos(torch.roll(rect_dir1, shifts=(1, 1), dims=(1, 2)))
+            cos_rect_dir1_3 = -torch.cos(rect_dir1)
+            cos_rect_dir1_4 = -torch.cos(torch.roll(rect_dir1, shifts=1, dims=1))
+            
+            cos_rect_stack = torch.stack([
+                cos_rect_dir0_1, cos_rect_dir0_2, cos_rect_dir0_3, cos_rect_dir0_4,
+                cos_rect_dir1_1, cos_rect_dir1_2, cos_rect_dir1_3, cos_rect_dir1_4
             ], dim=1)  # [batch_size, 8, L, L]
-            
-            # Compute all cos values at once and apply -1 sign
-            cos_rect_stack = -torch.cos(rect_angles)  # [batch_size, 8, L, L]
-            
-            #TODO: Clear intermediate variables
-            del rect_angles, rect_dir0_roll_1_1, rect_dir0_roll_1_1_1_2, rect_dir0_roll_1_2
-            del rect_dir1_roll_1_2, rect_dir1_roll_1_1_1_2, rect_dir1_roll_1_1
             
             # Calculate rectangle Jacobian contribution
             temp = K1 * cos_rect_stack
@@ -358,14 +312,8 @@ class FieldTransformation:
             ], dim=1)  # [batch_size, 2, L, L]
             rect_jac_shift = rect_jac_shift * field_mask
             
-            #TODO: Clear intermediate variables
-            del temp, cos_rect_stack, K1
-            
             # Accumulate log determinant
             log_det += torch.log(1 + plaq_jac_shift + rect_jac_shift).sum(dim=(1, 2, 3))
-            
-            #TODO: Clear intermediate variables
-            del plaq_jac_shift, rect_jac_shift, field_mask, plaq, rect, rect_dir0, rect_dir1
             
             # Update theta for next subset
             theta_curr = theta_curr + self.ft_phase_compiled(theta_curr, index)
@@ -389,16 +337,14 @@ class FieldTransformation:
     
     def compute_force(self, theta, beta, transformed=False):
         """
-        OPTIMIZED Compute force (gradient of action) - Vectorized version for better performance
+        Compute force (gradient of action)
         
         Args:
             theta: Field configuration with shape [batch_size, 2, L, L]
             beta: Coupling constant (float)
             transformed: Whether to compute force in transformed space (bool)
         """
-        # Ensure input requires gradients
-        if not theta.requires_grad:
-            theta = theta.clone().requires_grad_(True)
+        batch_size = theta.shape[0]
         
         if transformed:
             # In transformed space, account for the Jacobian
@@ -422,10 +368,11 @@ class FieldTransformation:
         else:
             total_action = self.compute_action_compiled(theta, beta)
         
-        # OPTIMIZED: Use vectorized gradient computation instead of the slow per-sample loop!
-        # This is 3-5x faster than the original per-sample loop
-        total_action = total_action.sum()  # Sum over batch for vectorized computation
-        force = torch.autograd.grad(total_action, theta, create_graph=True)[0]
+        # Calculate force for each sample in batch
+        force = torch.zeros_like(theta)
+        for i in range(batch_size):
+            grad = torch.autograd.grad(total_action[i], theta, create_graph=True)[0]
+            force[i] = grad[i] 
         
         return force  # shape: [batch_size, 2, L, L]
     
@@ -644,10 +591,16 @@ class FieldTransformation:
         Args:
             train_beta: Beta value used during training
         """
-        if self.save_tag is None:
-            checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta:.1f}.pt'
+        if train_beta is None:
+            if self.save_tag is None:
+                checkpoint_path = f'models/best_model_L{self.L}.pt'
+            else:
+                checkpoint_path = f'models/best_model_L{self.L}_{self.save_tag}.pt'
         else:
-            checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta:.1f}_{self.save_tag}.pt'
+            if self.save_tag is None:
+                checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta:.1f}.pt'
+            else:
+                checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta:.1f}_{self.save_tag}.pt'
         try:
             checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
             

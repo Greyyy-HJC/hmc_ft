@@ -24,9 +24,8 @@ torch_logger.setLevel(logging.ERROR)  # Only show error level logs
 torch_logger.propagate = False
 
 
-
 from utils import plaq_from_field_batch, rect_from_field_batch, get_field_mask, get_plaq_mask, get_rect_mask
-from cnn_model import jointCNN
+from cnn_model_opt import jointCNN
 
 class FieldTransformation:
     """Neural network based field transformation"""
@@ -275,7 +274,8 @@ class FieldTransformation:
     def compute_jac_logdet(self, theta):
         """Compute total log determinant of Jacobian for all subsets
         OPTIMIZED: Pre-compute roll operations to reduce redundant computation
-        OPTIMIZED: Vectorized trigonometric function computation"""
+        OPTIMIZED: Vectorized trigonometric function computation
+        MEMORY OPTIMIZED: Clear intermediate tensors to prevent OOM"""
         batch_size = theta.shape[0]
         log_det = torch.zeros(batch_size, device=self.device)
         theta_curr = theta.clone()
@@ -313,6 +313,9 @@ class FieldTransformation:
             # Compute all cos values at once and apply -1 sign
             cos_plaq_stack = -torch.cos(plaq_angles)  # [batch_size, 4, L, L]
             
+            #TODO: Clear intermediate variables
+            del plaq_angles, plaq_roll_1_2, plaq_roll_1_1
+            
             # Get K0, K1 coefficients using cached plaq and rect
             K0, K1 = self.compute_K0_K1(theta_curr, index, plaq, rect) # [batch_size, 4, L, L], [batch_size, 8, L, L]
             
@@ -323,6 +326,9 @@ class FieldTransformation:
                 temp[:, 2] + temp[:, 3]   # dir 1
             ], dim=1)  # [batch_size, 2, L, L]
             plaq_jac_shift = plaq_jac_shift * field_mask
+            
+            #TODO: Clear intermediate variables
+            del temp, cos_plaq_stack, K0
             
             # TRIGONOMETRIC OPTIMIZATION: Vectorized cos computation for rectangles
             # Stack all rectangle angles for vectorized computation
@@ -340,6 +346,10 @@ class FieldTransformation:
             # Compute all cos values at once and apply -1 sign
             cos_rect_stack = -torch.cos(rect_angles)  # [batch_size, 8, L, L]
             
+            #TODO: Clear intermediate variables
+            del rect_angles, rect_dir0_roll_1_1, rect_dir0_roll_1_1_1_2, rect_dir0_roll_1_2
+            del rect_dir1_roll_1_2, rect_dir1_roll_1_1_1_2, rect_dir1_roll_1_1
+            
             # Calculate rectangle Jacobian contribution
             temp = K1 * cos_rect_stack
             rect_jac_shift = torch.stack([
@@ -348,8 +358,14 @@ class FieldTransformation:
             ], dim=1)  # [batch_size, 2, L, L]
             rect_jac_shift = rect_jac_shift * field_mask
             
+            #TODO: Clear intermediate variables
+            del temp, cos_rect_stack, K1
+            
             # Accumulate log determinant
             log_det += torch.log(1 + plaq_jac_shift + rect_jac_shift).sum(dim=(1, 2, 3))
+            
+            #TODO: Clear intermediate variables
+            del plaq_jac_shift, rect_jac_shift, field_mask, plaq, rect, rect_dir0, rect_dir1
             
             # Update theta for next subset
             theta_curr = theta_curr + self.ft_phase_compiled(theta_curr, index)
@@ -599,9 +615,9 @@ class FieldTransformation:
         # make sure the models directory exists
         os.makedirs('models', exist_ok=True)
         if self.save_tag is None:
-            torch.save(save_dict, f'models/best_model_L{self.L}_train_beta{self.train_beta}.pt')
+            torch.save(save_dict, f'models/best_model_opt_L{self.L}_train_beta{self.train_beta}.pt')
         else:
-            torch.save(save_dict, f'models/best_model_L{self.L}_train_beta{self.train_beta}_{self.save_tag}.pt')
+            torch.save(save_dict, f'models/best_model_opt_L{self.L}_train_beta{self.train_beta}_{self.save_tag}.pt')
 
     def _plot_training_history(self, train_losses, test_losses):
         """
@@ -618,7 +634,7 @@ class FieldTransformation:
         plt.ylabel('Loss')
         plt.legend()
         plt.grid(True)
-        plt.savefig(f'plots/cnn_loss_L{self.L}_train_beta{self.train_beta}.pdf', transparent=True)
+        plt.savefig(f'plots/cnn_opt_loss_L{self.L}_train_beta{self.train_beta}.pdf', transparent=True)
         plt.show()
 
     def _load_best_model(self, train_beta):
@@ -628,16 +644,10 @@ class FieldTransformation:
         Args:
             train_beta: Beta value used during training
         """
-        if train_beta is None:
-            if self.save_tag is None:
-                checkpoint_path = f'models/best_model_L{self.L}.pt'
-            else:
-                checkpoint_path = f'models/best_model_L{self.L}_{self.save_tag}.pt'
+        if self.save_tag is None:
+            checkpoint_path = f'models/best_model_opt_L{self.L}_train_beta{train_beta:.1f}.pt'
         else:
-            if self.save_tag is None:
-                checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta:.1f}.pt'
-            else:
-                checkpoint_path = f'models/best_model_L{self.L}_train_beta{train_beta:.1f}_{self.save_tag}.pt'
+            checkpoint_path = f'models/best_model_opt_L{self.L}_train_beta{train_beta:.1f}_{self.save_tag}.pt'
         try:
             checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
             
