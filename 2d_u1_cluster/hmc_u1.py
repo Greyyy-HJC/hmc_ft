@@ -63,12 +63,10 @@ class HMC_U1:
         return action_value
 
     def force(self, theta):
-        theta.requires_grad_(True)
-        action_value = self.action(theta)
-        action_value.backward(retain_graph=True)
-        ff = theta.grad
-        theta.requires_grad_(False) # so that the memory can be freed
-        return ff
+        theta_copy = theta.detach().clone().requires_grad_(True)
+        action_value = self.action(theta_copy)
+        force = torch.autograd.grad(action_value, theta_copy)[0]
+        return force.detach()  # *: break the gradient chain
 
     def leapfrog(self, theta, pi):
         dt = self.dt

@@ -149,7 +149,7 @@ class HMC_U1_FT:
         theta_copy = theta_new.detach().clone().requires_grad_(True)
         action_value = self.new_action(theta_copy)
         force = torch.autograd.grad(action_value, theta_copy)[0]
-        return force.detach()  #TODO: break the gradient chain
+        return force.detach()  # *: break the gradient chain
 
     def leapfrog(self, theta, pi):
         """

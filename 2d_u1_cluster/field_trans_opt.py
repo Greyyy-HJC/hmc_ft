@@ -25,7 +25,7 @@ from cnn_model_opt import jointCNN
 
 class FieldTransformation:
     """Neural network based field transformation"""
-    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False, num_workers=0, identity_init=True, save_tag=None):
+    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False, num_workers=0, identity_init=True, save_tag=None, fabric=None):
         self.L = lattice_size
         self.device = torch.device(device)
         self.n_subsets = n_subsets
@@ -33,22 +33,31 @@ class FieldTransformation:
         self.num_workers = num_workers
         self.train_beta = None # init, will be set in train function
         self.save_tag = save_tag
-        
+        self.fabric = fabric
         # Create n_subsets independent models for each subset
-        self.models = nn.ModuleList([jointCNN().to(device) for _ in range(n_subsets)])
+        raw_models = nn.ModuleList([jointCNN().to(device) for _ in range(n_subsets)])
         
         # * Initialize models to produce nearly identity transformation if identity_init is True
         if identity_init:
-            for model in self.models:
+            for model in raw_models:
                 # Initialize all weights to a small non-zero value
                 for param in model.parameters():
                     nn.init.normal_(param, mean=0.0, std=0.001)
                     # nn.init.zeros_(param)
         
-        self.optimizers = [
+        raw_optimizers = [
             torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
-            for model in self.models
+            for model in raw_models
         ]
+        
+        self.models = []
+        self.optimizers = []
+        
+        for model, optimizer in zip(raw_models, raw_optimizers):
+            if self.fabric is not None:
+                model, optimizer = self.fabric.setup(model, optimizer)
+            self.models.append(model)
+            self.optimizers.append(optimizer)
         
         self.schedulers = [
             torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -72,15 +81,15 @@ class FieldTransformation:
                     "dynamic": True,        # Allow dynamic shapes, reduce recompilation warnings
                 }
                 
-                print("Trying to use torch.compile for optimized computation...")
+                self.fabric.print("Trying to use torch.compile for optimized computation...")
                 self.forward_compiled = torch.compile(self.forward, **compile_options)
                 self.ft_phase_compiled = torch.compile(self.ft_phase, **compile_options)
                 self.compute_jac_logdet_compiled = torch.compile(self.compute_jac_logdet, **compile_options)
                 self.compute_action_compiled = torch.compile(self.compute_action, **compile_options)
-                print("Successfully initialized torch.compile")
+                self.fabric.print("Successfully initialized torch.compile")
             except Exception as e:
-                print(f"Warning: torch.compile initialization failed: {e}")
-                print("Falling back to standard functions")
+                self.fabric.print(f"Warning: torch.compile initialization failed: {e}")
+                self.fabric.print("Falling back to standard functions")
                 self.forward_compiled = self.forward
                 self.ft_phase_compiled = self.ft_phase
                 self.compute_jac_logdet_compiled = self.compute_jac_logdet
@@ -91,7 +100,7 @@ class FieldTransformation:
             self.ft_phase_compiled = self.ft_phase
             self.compute_jac_logdet_compiled = self.compute_jac_logdet
             self.compute_action_compiled = self.compute_action
-            print("torch.compile not available, using standard functions")
+            self.fabric.print("torch.compile not available, using standard functions")
 
     def compute_K0_K1(self, theta, index, plaq, rect):
         """
@@ -259,7 +268,7 @@ class FieldTransformation:
             
             # Warning if not converged
             if diff >= tol:
-                print(f"Warning: Inverse iteration for subset {index} did not converge, final diff = {diff:.2e}")
+                self.fabric.print(f"Warning: Inverse iteration for subset {index} did not converge, final diff = {diff:.2e}")
         
         return theta_curr
     
@@ -409,11 +418,11 @@ class FieldTransformation:
                 diff = (jac_logdet_autograd[0] - jac_logdet[0]) / jac_logdet[0]
                 
                 if abs(diff.item()) > 1e-4:
-                    print(f"\nWarning: Jacobian log determinant difference = {diff:.2f}")
-                    print(">>> Jacobian is not correct!")
+                    self.fabric.print(f"\nWarning: Jacobian log determinant difference = {diff:.2f}")
+                    self.fabric.print(">>> Jacobian is not correct!")
                 else:
-                    print(f"\nJacobian log det (manual): {jac_logdet[0]:.2e}, (autograd): {jac_logdet_autograd[0]:.2e}")
-                    print(">>> Jacobian is all good!")
+                    self.fabric.print(f"\nJacobian log det (manual): {jac_logdet[0]:.2e}, (autograd): {jac_logdet_autograd[0]:.2e}")
+                    self.fabric.print(">>> Jacobian is all good!")
             total_action = action - jac_logdet
         else:
             total_action = self.compute_action_compiled(theta, beta)
@@ -458,7 +467,7 @@ class FieldTransformation:
             self._zero_all_grads()
             
             # Backpropagate
-            loss.backward()
+            self.fabric.backward(loss)
             
             # Update all models
             self._step_all_optimizers()
@@ -518,8 +527,12 @@ class FieldTransformation:
             test_data, batch_size=batch_size, num_workers=self.num_workers
         )
         
+        if self.fabric is not None:
+            train_loader = self.fabric.setup_dataloaders(train_loader)
+            test_loader = self.fabric.setup_dataloaders(test_loader)
+        
         # Print training information
-        print(f"\n>>> Training the model at beta = {train_beta}\n")
+        self.fabric.print(f"\n>>> Training the model at beta = {train_beta}\n")
         
         for epoch in tqdm(range(n_epochs), desc="Training epochs"):
             # Training phase
@@ -547,7 +560,7 @@ class FieldTransformation:
             test_losses.append(test_loss)
             
             # Print epoch summary
-            print(f"Epoch {epoch+1}/{n_epochs} - "
+            self.fabric.print(f"Epoch {epoch+1}/{n_epochs} - "
                   f"Train Loss: {train_loss:.6f} - "
                   f"Test Loss: {test_loss:.6f}")
             
@@ -659,7 +672,7 @@ class FieldTransformation:
                     
                     # If model is not DataParallel but state_dict has 'module.' prefix, remove it
                     if not is_data_parallel and has_module_prefix:
-                        print(f"Removing 'module.' prefix from state dict for model {i}")
+                        self.fabric.print(f"Removing 'module.' prefix from state dict for model {i}")
                         new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
                         model.load_state_dict(new_state_dict)
                     else:
@@ -668,7 +681,7 @@ class FieldTransformation:
                 else:
                     raise KeyError(f"State dict for model {i} not found in checkpoint")
                 
-            print(f"Loaded best models from epoch {checkpoint['epoch'] + 1} with loss {checkpoint['loss']:.6f}") # +1 because epoch starts from 0
+            self.fabric.print(f"Loaded best models from epoch {checkpoint['epoch'] + 1} with loss {checkpoint['loss']:.6f}") # +1 because epoch starts from 0
         except Exception as e:
-            print(f"Error loading model: {e}")
+            self.fabric.print(f"Error loading model: {e}")
             raise
