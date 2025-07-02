@@ -3,13 +3,20 @@ import os
 # Set PyTorch memory management before importing torch
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import torch
 import torch.nn as nn
 from hmc_u1 import HMC_U1
 from hmc_u1_ft import HMC_U1_FT
-from field_trans import FieldTransformation
+# from field_trans import FieldTransformation
+from field_trans_opt import FieldTransformation
 from utils import hmc_summary, set_seed
 
+# Change to the run directory
+rundir = '../'
+os.chdir(rundir)
 
 # random seed
 rand_seed = 1331

@@ -1,16 +1,21 @@
 
 import torch
+import os
+
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from utils import set_seed
 from utils import plaq_from_field_batch
-# from field_trans_opt import FieldTransformation
-from field_trans import FieldTransformation
+from field_trans_opt import FieldTransformation
+# from field_trans import FieldTransformation
 
 def main():
     # Fixed parameters
     lattice_size = 64
     train_beta = 2.0
     device = 'cpu'
-    save_tag = 'seed2008'
+    save_tag = 'rnet1'
     random_seed = 2008
     
     # Set random seed for reproducibility

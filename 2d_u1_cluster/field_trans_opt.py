@@ -34,6 +34,9 @@ class FieldTransformation:
         self.train_beta = None # init, will be set in train function
         self.save_tag = save_tag
         self.fabric = fabric
+        self.print = self.fabric.print if self.fabric is not None else print
+        self.backward = self.fabric.backward if self.fabric is not None else torch.autograd.backward
+        
         # Create n_subsets independent models for each subset
         raw_models = nn.ModuleList([jointCNN().to(device) for _ in range(n_subsets)])
         
@@ -81,15 +84,15 @@ class FieldTransformation:
                     "dynamic": True,        # Allow dynamic shapes, reduce recompilation warnings
                 }
                 
-                self.fabric.print("Trying to use torch.compile for optimized computation...")
+                self.print("Trying to use torch.compile for optimized computation...")
                 self.forward_compiled = torch.compile(self.forward, **compile_options)
                 self.ft_phase_compiled = torch.compile(self.ft_phase, **compile_options)
                 self.compute_jac_logdet_compiled = torch.compile(self.compute_jac_logdet, **compile_options)
                 self.compute_action_compiled = torch.compile(self.compute_action, **compile_options)
-                self.fabric.print("Successfully initialized torch.compile")
+                self.print("Successfully initialized torch.compile")
             except Exception as e:
-                self.fabric.print(f"Warning: torch.compile initialization failed: {e}")
-                self.fabric.print("Falling back to standard functions")
+                self.print(f"Warning: torch.compile initialization failed: {e}")
+                self.print("Falling back to standard functions")
                 self.forward_compiled = self.forward
                 self.ft_phase_compiled = self.ft_phase
                 self.compute_jac_logdet_compiled = self.compute_jac_logdet
@@ -100,7 +103,7 @@ class FieldTransformation:
             self.ft_phase_compiled = self.ft_phase
             self.compute_jac_logdet_compiled = self.compute_jac_logdet
             self.compute_action_compiled = self.compute_action
-            self.fabric.print("torch.compile not available, using standard functions")
+            self.print("torch.compile not available, using standard functions")
 
     def compute_K0_K1(self, theta, index, plaq, rect):
         """
@@ -268,7 +271,7 @@ class FieldTransformation:
             
             # Warning if not converged
             if diff >= tol:
-                self.fabric.print(f"Warning: Inverse iteration for subset {index} did not converge, final diff = {diff:.2e}")
+                self.print(f"Warning: Inverse iteration for subset {index} did not converge, final diff = {diff:.2e}")
         
         return theta_curr
     
@@ -418,11 +421,11 @@ class FieldTransformation:
                 diff = (jac_logdet_autograd[0] - jac_logdet[0]) / jac_logdet[0]
                 
                 if abs(diff.item()) > 1e-4:
-                    self.fabric.print(f"\nWarning: Jacobian log determinant difference = {diff:.2f}")
-                    self.fabric.print(">>> Jacobian is not correct!")
+                    self.print(f"\nWarning: Jacobian log determinant difference = {diff:.2f}")
+                    self.print(">>> Jacobian is not correct!")
                 else:
-                    self.fabric.print(f"\nJacobian log det (manual): {jac_logdet[0]:.2e}, (autograd): {jac_logdet_autograd[0]:.2e}")
-                    self.fabric.print(">>> Jacobian is all good!")
+                    self.print(f"\nJacobian log det (manual): {jac_logdet[0]:.2e}, (autograd): {jac_logdet_autograd[0]:.2e}")
+                    self.print(">>> Jacobian is all good!")
             total_action = action - jac_logdet
         else:
             total_action = self.compute_action_compiled(theta, beta)
@@ -467,7 +470,7 @@ class FieldTransformation:
             self._zero_all_grads()
             
             # Backpropagate
-            self.fabric.backward(loss)
+            self.backward(loss)
             
             # Update all models
             self._step_all_optimizers()
@@ -532,7 +535,7 @@ class FieldTransformation:
             test_loader = self.fabric.setup_dataloaders(test_loader)
         
         # Print training information
-        self.fabric.print(f"\n>>> Training the model at beta = {train_beta}\n")
+        self.print(f"\n>>> Training the model at beta = {train_beta}\n")
         
         for epoch in tqdm(range(n_epochs), desc="Training epochs"):
             # Training phase
@@ -560,7 +563,7 @@ class FieldTransformation:
             test_losses.append(test_loss)
             
             # Print epoch summary
-            self.fabric.print(f"Epoch {epoch+1}/{n_epochs} - "
+            self.print(f"Epoch {epoch+1}/{n_epochs} - "
                   f"Train Loss: {train_loss:.6f} - "
                   f"Test Loss: {test_loss:.6f}")
             
@@ -672,7 +675,7 @@ class FieldTransformation:
                     
                     # If model is not DataParallel but state_dict has 'module.' prefix, remove it
                     if not is_data_parallel and has_module_prefix:
-                        self.fabric.print(f"Removing 'module.' prefix from state dict for model {i}")
+                        self.print(f"Removing 'module.' prefix from state dict for model {i}")
                         new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
                         model.load_state_dict(new_state_dict)
                     else:
@@ -681,7 +684,7 @@ class FieldTransformation:
                 else:
                     raise KeyError(f"State dict for model {i} not found in checkpoint")
                 
-            self.fabric.print(f"Loaded best models from epoch {checkpoint['epoch'] + 1} with loss {checkpoint['loss']:.6f}") # +1 because epoch starts from 0
+            self.print(f"Loaded best models from epoch {checkpoint['epoch'] + 1} with loss {checkpoint['loss']:.6f}") # +1 because epoch starts from 0
         except Exception as e:
-            self.fabric.print(f"Error loading model: {e}")
+            self.print(f"Error loading model: {e}")
             raise

@@ -38,7 +38,7 @@ class ResBlock(nn.Module):
         return out
 
 class jointCNN(nn.Module):
-    def __init__(self, plaq_input_channels=2, rect_input_channels=4, plaq_output_channels=4, rect_output_channels=8, kernel_size=(3, 3), num_res_blocks=3):
+    def __init__(self, plaq_input_channels=2, rect_input_channels=4, plaq_output_channels=4, rect_output_channels=8, kernel_size=(3, 3), num_res_blocks=1):
         super().__init__()
         # Combined input channels for plaq and rect features
         combined_input_channels = plaq_input_channels + rect_input_channels

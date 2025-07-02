@@ -2,12 +2,12 @@
 
 #PBS -N train
 #PBS -A fthmc
-#PBS -l select=2
+#PBS -l select=1
 #PBS -l filesystems=home:eagle
 #PBS -q by-gpu
 #PBS -j oe
-#PBS -l walltime=0:30:00
-#PBS -o /eagle/fthmc/run/hmc_ft/2d_u1_cluster/logs/train_opt_test.log
+#PBS -l walltime=12:00:00
+#PBS -o /eagle/fthmc/run/hmc_ft/2d_u1_cluster/logs/train_opt_L64_b2.0-b6.0_seed2008.log
 
 # switch to the submit directory
 WORKDIR=/eagle/fthmc/run/hmc_ft/2d_u1_cluster
@@ -39,7 +39,7 @@ python --version
 echo "Python path: $(which python)"
 
 # run train.py
-torchrun --standalone --nproc_per_node=2 train_opt.py --lattice_size 64 --min_beta 2.0 --max_beta 2.0 --beta_gap 0.5 --n_epochs 16 --batch_size 64 --n_subsets 8 --n_workers 0 --rand_seed 2008 --if_identity_init
+python train.py --lattice_size 64 --min_beta 2.0 --max_beta 6.0 --beta_gap 0.5 --n_epochs 16 --batch_size 32 --n_subsets 8 --n_workers 0 --rand_seed 2008 --save_tag 'seed2008' --if_identity_init
 
 # calculate total time
 end_time=$(date +"%Y-%m-%d %H:%M:%S")

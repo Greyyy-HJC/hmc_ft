@@ -39,7 +39,7 @@ python --version
 echo "Python path: $(which python)"
 
 # run
-python compare_opt.py --lattice_size 64 --n_configs 4096 --beta 6 --train_beta 4.5 --step_size 0.06 --ft_step_size 0.05 --max_lag 200 --rand_seed 2008 --device 'cuda' #--if_hmc
+python compare_fthmc.py --lattice_size 64 --n_configs 4096 --beta 6 --train_beta 4.5 --step_size 0.06 --ft_step_size 0.05 --max_lag 200 --rand_seed 2008 --save_tag 'seed2008' --device 'cuda'
 
 # calculate total time
 end_time=$(date +"%Y-%m-%d %H:%M:%S")

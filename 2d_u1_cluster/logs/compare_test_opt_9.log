@@ -1,0 +1,164 @@
+ 
+>>> PBS_NODEFILE content:
+sophia-gpu-01.lab.alcf.anl.gov
+1n*1t
+Wed Jul  2 19:08:50 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-40GB          Off |   00000000:0F:00.0 Off |                    0 |
+| N/A   21C    P0             54W /  400W |       1MiB /  40960MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Thu_Mar_28_02:18:24_PDT_2024
+Cuda compilation tools, release 12.4, V12.4.131
+Build cuda_12.4.r12.4/compiler.34097967_0
+Start time: 2025-07-02 19:08:50
+Python 3.9.18
+Python path: /lus/eagle/projects/fthmc/software/ml/bin/python
+You are using a CUDA device ('NVIDIA A100-SXM4-40GB') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/1
+[W702 19:08:57.555614909 CUDAAllocatorConfig.h:28] Warning: expandable_segments not supported on this platform (function operator())
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 1 processes
+----------------------------------------------------------------------------------------------------
+
+============================================================
+>>> Arguments:
+Lattice size: 64
+Number of configurations: 512
+Beta: 6.0
+Training beta: 4.5
+Step size: 0.06
+FT step size: 0.05
+Max lag: 200
+Random seed: 2008
+Device: cuda
+============================================================
+>>> Neural Network Field Transformation HMC Simulation: 
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+>>> Loading trained model
+Removing 'module.' prefix from state dict for model 0
+Removing 'module.' prefix from state dict for model 1
+Removing 'module.' prefix from state dict for model 2
+Removing 'module.' prefix from state dict for model 3
+Removing 'module.' prefix from state dict for model 4
+Removing 'module.' prefix from state dict for model 5
+Removing 'module.' prefix from state dict for model 6
+Removing 'module.' prefix from state dict for model 7
+Loaded best models from epoch 16 with loss 17.788316
+>>> Model loaded successfully in 0.06 seconds
+Successfully compiled HMC functions with torch.compile
+>>> Starting thermalization with field transformation...
+>>> Initial thermalization...
+Initial thermalization:   0%|          | 0/200 [00:00<?, ?it/s]Initial thermalization:   0%|          | 1/200 [00:46<2:33:46, 46.36s/it]Initial thermalization:   1%|          | 2/200 [01:21<2:10:56, 39.68s/it]Initial thermalization:   2%|▏         | 3/200 [01:56<2:03:31, 37.62s/it]Initial thermalization:   2%|▏         | 4/200 [02:32<2:00:30, 36.89s/it]Initial thermalization:   2%|▎         | 5/200 [03:08<1:58:32, 36.48s/it]Initial thermalization:   3%|▎         | 6/200 [03:43<1:57:08, 36.23s/it]Initial thermalization:   4%|▎         | 7/200 [04:19<1:56:18, 36.16s/it]Initial thermalization:   4%|▍         | 8/200 [04:56<1:55:53, 36.22s/it]Initial thermalization:   4%|▍         | 9/200 [05:32<1:55:10, 36.18s/it]Initial thermalization:   5%|▌         | 10/200 [06:09<1:55:37, 36.51s/it]Initial thermalization:   6%|▌         | 11/200 [06:45<1:54:58, 36.50s/it]Initial thermalization:   6%|▌         | 12/200 [07:22<1:54:33, 36.56s/it]Initial thermalization:   6%|▋         | 13/200 [07:59<1:54:17, 36.67s/it]Initial thermalization:   7%|▋         | 14/200 [08:36<1:54:00, 36.78s/it]Initial thermalization:   8%|▊         | 15/200 [09:13<1:53:52, 36.93s/it]Initial thermalization:   8%|▊         | 16/200 [09:51<1:53:45, 37.10s/it]Initial thermalization:   8%|▊         | 17/200 [10:29<1:53:47, 37.31s/it]=>> PBS: job killed: walltime 640 exceeded limit 600
+W0702 19:19:29.730537 3737912 torch/distributed/elastic/agent/server/api.py:704] Received Signals.SIGTERM death signal, shutting down workers
+W0702 19:19:29.731389 3737912 torch/distributed/elastic/multiprocessing/api.py:897] Sending process 3737983 closing signal SIGTERM
+Traceback (most recent call last):
+  File "/lus/eagle/projects/fthmc/software/ml/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/run.py", line 919, in main
+    run(args)
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/run.py", line 910, in run
+    elastic_launch(
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/launcher/api.py", line 260, in launch_agent
+    result = agent.run()
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/elastic/metrics/api.py", line 137, in wrapper
+    result = f(*args, **kwargs)
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/elastic/agent/server/api.py", line 696, in run
+    result = self._invoke_run(role)
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/elastic/agent/server/api.py", line 855, in _invoke_run
+    time.sleep(monitor_interval)
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 84, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 3737912 got signal: 15
+ 
+>>> PBS_NODEFILE content:
+sophia-gpu-01.lab.alcf.anl.gov
+1n*1t
+Wed Jul  2 19:50:53 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-40GB          Off |   00000000:90:00.0 Off |                    0 |
+| N/A   28C    P0             51W /  400W |       1MiB /  40960MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Thu_Mar_28_02:18:24_PDT_2024
+Cuda compilation tools, release 12.4, V12.4.131
+Build cuda_12.4.r12.4/compiler.34097967_0
+Start time: 2025-07-02 19:50:53
+Python 3.9.18
+Python path: /lus/eagle/projects/fthmc/software/ml/bin/python
+You are using a CUDA device ('NVIDIA A100-SXM4-40GB') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/1
+[W702 19:51:03.152667274 CUDAAllocatorConfig.h:28] Warning: expandable_segments not supported on this platform (function operator())
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 1 processes
+----------------------------------------------------------------------------------------------------
+
+============================================================
+>>> Arguments:
+Lattice size: 64
+Number of configurations: 512
+Beta: 6.0
+Training beta: 4.5
+Step size: 0.06
+FT step size: 0.05
+Max lag: 200
+Random seed: 2008
+Device: cuda
+============================================================
+>>> Neural Network Field Transformation HMC Simulation: 
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+>>> Loading trained model
+Removing 'module.' prefix from state dict for model 0
+Removing 'module.' prefix from state dict for model 1
+Removing 'module.' prefix from state dict for model 2
+Removing 'module.' prefix from state dict for model 3
+Removing 'module.' prefix from state dict for model 4
+Removing 'module.' prefix from state dict for model 5
+Removing 'module.' prefix from state dict for model 6
+Removing 'module.' prefix from state dict for model 7
+Loaded best models from epoch 16 with loss 17.788316
+>>> Model loaded successfully in 0.06 seconds
+Successfully compiled HMC functions with torch.compile
+>>> Starting thermalization with field transformation...
+>>> Initial thermalization...
+Initial thermalization:   0%|          | 0/200 [00:00<?, ?it/s]Initial thermalization:   0%|          | 1/200 [00:49<2:43:00, 49.15s/it]Initial thermalization:   1%|          | 2/200 [01:25<2:16:39, 41.41s/it]Initial thermalization:   2%|▏         | 3/200 [02:00<2:07:10, 38.73s/it]Initial thermalization:   2%|▏         | 4/200 [02:36<2:02:39, 37.55s/it]Initial thermalization:   2%|▎         | 5/200 [03:12<1:59:57, 36.91s/it]
