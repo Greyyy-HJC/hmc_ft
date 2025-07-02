@@ -13,10 +13,6 @@ import logging
 warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 warnings.filterwarnings("ignore", category=UserWarning, module="torch._dynamo")
 
-# Set environment variable to control PyTorch log level
-os.environ["TORCH_LOGS"] = "ERROR"
-os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
-
 # Configure PyTorch logger, redirect to file
 torch_logger = logging.getLogger("torch")
 torch_logger.setLevel(logging.ERROR)  # Only show error level logs

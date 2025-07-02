@@ -1,0 +1,79 @@
+ 
+>>> PBS_NODEFILE content:
+sophia-gpu-01.lab.alcf.anl.gov
+1n*1t
+Tue Jul  1 23:04:52 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-40GB          Off |   00000000:47:00.0 Off |                    0 |
+| N/A   21C    P0             51W /  400W |       1MiB /  40960MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Thu_Mar_28_02:18:24_PDT_2024
+Cuda compilation tools, release 12.4, V12.4.131
+Build cuda_12.4.r12.4/compiler.34097967_0
+Start time: 2025-07-01 23:04:52
+Python 3.9.18
+Python path: /lus/eagle/projects/fthmc/software/ml/bin/python
+Traceback (most recent call last):
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/_inductor/compile_worker/__main__.py", line 7, in <module>
+    from torch._inductor.async_compile import pre_fork_setup
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/__init__.py", line 2619, in <module>
+    _logging._init_logs()
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/_logging/_internal.py", line 926, in _init_logs
+    _update_log_state_from_env()
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/_logging/_internal.py", line 736, in _update_log_state_from_env
+    log_state = _parse_log_settings(log_setting)
+  File "/lus/eagle/projects/fthmc/software/ml/lib64/python3.9/site-packages/torch/_logging/_internal.py", line 719, in _parse_log_settings
+    raise ValueError(_invalid_settings_err_msg(settings))
+ValueError: 
+Invalid log settings: ERROR, must be a comma separated list of fully
+qualified module names, registered log names or registered artifact names.
+For more info on various settings, try TORCH_LOGS="help"
+Valid settings:
+all, dynamo, fake_tensor, aot, autograd, inductor, dynamic, torch, distributed, c10d, ddp, pp, fsdp, dtensor, onnx, export, perf_hints, graph, graph_breaks, overlap, aot_graphs, not_implemented, verbose_guards, trace_bytecode, schedule, guards, bytecode, compiled_autograd, onnx_diagnostics, recompiles, aot_joint_graph, output_code, graph_sizes, trace_shape_events, graph_code, fusion, sym_node, compiled_autograd_verbose, trace_source, aot_graphs_effects, ddp_graphs, kernel_code, benchmarking, custom_format_test_artifact, loop_ordering, cudagraphs, post_grad_graphs, recompiles_verbose, trace_call, cudagraph_static_inputs
+
+============================================================
+>>> Arguments:
+Lattice size: 64
+Number of configurations: 512
+Beta: 6.0
+Training beta: 6.0
+Step size: 0.06
+FT step size: 0.05
+Max lag: 200
+Random seed: 2008
+Device: cuda
+============================================================
+>>> Neural Network Field Transformation HMC Simulation: 
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+>>> Loading trained model
+Removing 'module.' prefix from state dict for model 0
+Removing 'module.' prefix from state dict for model 1
+Removing 'module.' prefix from state dict for model 2
+Removing 'module.' prefix from state dict for model 3
+Removing 'module.' prefix from state dict for model 4
+Removing 'module.' prefix from state dict for model 5
+Removing 'module.' prefix from state dict for model 6
+Removing 'module.' prefix from state dict for model 7
+Loaded best models from epoch 16 with loss 22.932971
+>>> Model loaded successfully in 0.02 seconds
+>>> Starting thermalization with field transformation...
+>>> Initial thermalization...
+Initial thermalization:   0%|          | 0/200 [00:00<?, ?it/s]Initial thermalization:   0%|          | 1/200 [02:21<7:48:46, 141.34s/it]Initial thermalization:   1%|          | 2/200 [02:25<3:20:46, 60.84s/it] Initial thermalization:   2%|▏         | 3/200 [02:30<1:55:14, 35.10s/it]Initial thermalization:   2%|▏         | 4/200 [02:34<1:15:08, 23.00s/it]Initial thermalization:   2%|▎         | 5/200 [02:39<53:02, 16.32s/it]  Initial thermalization:   3%|▎         | 6/200 [02:43<39:45, 12.30s/it]Initial thermalization:   4%|▎         | 7/200 [02:48<31:19,  9.74s/it]Initial thermalization:   4%|▍         | 8/200 [02:52<25:47,  8.06s/it]Initial thermalization:   4%|▍         | 9/200 [02:57<22:04,  6.94s/it]Initial thermalization:   5%|▌         | 10/200 [03:01<19:33,  6.18s/it]Initial thermalization:   6%|▌         | 11/200 [03:06<17:48,  5.65s/it]Initial thermalization:   6%|▌         | 12/200 [03:10<16:34,  5.29s/it]Initial thermalization:   6%|▋         | 13/200 [03:14<15:41,  5.03s/it]Initial thermalization:   7%|▋         | 14/200 [03:19<15:03,  4.86s/it]Initial thermalization:   8%|▊         | 15/200 [03:23<14:37,  4.74s/it]Initial thermalization:   8%|▊         | 16/200 [03:28<14:17,  4.66s/it]Initial thermalization:   8%|▊         | 17/200 [03:32<13:58,  4.58s/it]Initial thermalization:   9%|▉         | 18/200 [03:37<13:41,  4.51s/it]Initial thermalization:  10%|▉         | 19/200 [03:41<13:27,  4.46s/it]Initial thermalization:  10%|█         | 20/200 [03:45<13:16,  4.43s/it]Initial thermalization:  10%|█         | 21/200 [03:50<13:07,  4.40s/it]Initial thermalization:  11%|█         | 22/200 [03:54<13:00,  4.39s/it]Initial thermalization:  12%|█▏        | 23/200 [03:58<12:54,  4.37s/it]Initial thermalization:  12%|█▏        | 24/200 [04:03<12:48,  4.36s/it]Initial thermalization:  12%|█▎        | 25/200 [04:07<12:42,  4.36s/it]Initial thermalization:  13%|█▎        | 26/200 [04:11<12:37,  4.35s/it]Initial thermalization:  14%|█▎        | 27/200 [04:16<12:32,  4.35s/it]Initial thermalization:  14%|█▍        | 28/200 [04:20<12:27,  4.35s/it]Initial thermalization:  14%|█▍        | 29/200 [04:24<12:23,  4.35s/it]Initial thermalization:  15%|█▌        | 30/200 [04:29<12:18,  4.35s/it]Initial thermalization:  16%|█▌        | 31/200 [04:33<12:14,  4.35s/it]Initial thermalization:  16%|█▌        | 32/200 [04:37<12:09,  4.34s/it]Initial thermalization:  16%|█▋        | 33/200 [04:42<12:05,  4.34s/it]Initial thermalization:  17%|█▋        | 34/200 [04:46<12:00,  4.34s/it]Initial thermalization:  18%|█▊        | 35/200 [04:50<11:56,  4.34s/it]

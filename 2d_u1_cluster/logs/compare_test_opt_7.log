@@ -1,0 +1,63 @@
+ 
+>>> PBS_NODEFILE content:
+sophia-gpu-01.lab.alcf.anl.gov
+1n*1t
+Tue Jul  1 23:16:12 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-40GB          Off |   00000000:BD:00.0 Off |                    0 |
+| N/A   25C    P0             51W /  400W |       1MiB /  40960MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Thu_Mar_28_02:18:24_PDT_2024
+Cuda compilation tools, release 12.4, V12.4.131
+Build cuda_12.4.r12.4/compiler.34097967_0
+Start time: 2025-07-01 23:16:13
+Python 3.9.18
+Python path: /lus/eagle/projects/fthmc/software/ml/bin/python
+============================================================
+>>> Arguments:
+Lattice size: 64
+Number of configurations: 512
+Beta: 6.0
+Training beta: 6.0
+Step size: 0.06
+FT step size: 0.05
+Max lag: 200
+Random seed: 2008
+Device: cuda
+If do the HMC without FT: False
+============================================================
+>>> Neural Network Field Transformation HMC Simulation: 
+Trying to use torch.compile for optimized computation...
+Successfully initialized torch.compile
+>>> Loading trained model
+Removing 'module.' prefix from state dict for model 0
+Removing 'module.' prefix from state dict for model 1
+Removing 'module.' prefix from state dict for model 2
+Removing 'module.' prefix from state dict for model 3
+Removing 'module.' prefix from state dict for model 4
+Removing 'module.' prefix from state dict for model 5
+Removing 'module.' prefix from state dict for model 6
+Removing 'module.' prefix from state dict for model 7
+Loaded best models from epoch 16 with loss 22.932971
+>>> Model loaded successfully in 0.02 seconds
+Successfully compiled HMC functions with torch.compile
+>>> Starting thermalization with field transformation...
+>>> Initial thermalization...
+Initial thermalization:   0%|          | 0/200 [00:00<?, ?it/s]Initial thermalization:   0%|          | 1/200 [01:32<5:05:59, 92.26s/it]Initial thermalization:   1%|          | 2/200 [01:36<2:14:05, 40.64s/it]Initial thermalization:   2%|▏         | 3/200 [01:41<1:19:14, 24.13s/it]Initial thermalization:   2%|▏         | 4/200 [01:45<53:31, 16.39s/it]  Initial thermalization:   2%|▎         | 5/200 [01:50<39:19, 12.10s/it]Initial thermalization:   3%|▎         | 6/200 [01:54<30:46,  9.52s/it]Initial thermalization:   4%|▎         | 7/200 [01:59<25:20,  7.88s/it]Initial thermalization:   4%|▍         | 8/200 [02:03<21:44,  6.79s/it]Initial thermalization:   4%|▍         | 9/200 [02:08<19:19,  6.07s/it]Initial thermalization:   5%|▌         | 10/200 [02:12<17:38,  5.57s/it]Initial thermalization:   6%|▌         | 11/200 [02:17<16:27,  5.22s/it]Initial thermalization:   6%|▌         | 12/200 [02:21<15:38,  4.99s/it]Initial thermalization:   6%|▋         | 13/200 [02:26<15:05,  4.84s/it]Initial thermalization:   7%|▋         | 14/200 [02:30<14:39,  4.73s/it]Initial thermalization:   8%|▊         | 15/200 [02:34<14:19,  4.65s/it]Initial thermalization:   8%|▊         | 16/200 [02:39<14:04,  4.59s/it]Initial thermalization:   8%|▊         | 17/200 [02:43<13:52,  4.55s/it]Initial thermalization:   9%|▉         | 18/200 [02:48<13:42,  4.52s/it]Initial thermalization:  10%|▉         | 19/200 [02:52<13:34,  4.50s/it]Initial thermalization:  10%|█         | 20/200 [02:57<13:27,  4.49s/it]Initial thermalization:  10%|█         | 21/200 [03:01<13:21,  4.48s/it]Initial thermalization:  11%|█         | 22/200 [03:06<13:16,  4.48s/it]Initial thermalization:  12%|█▏        | 23/200 [03:10<13:11,  4.47s/it]Initial thermalization:  12%|█▏        | 24/200 [03:15<13:06,  4.47s/it]Initial thermalization:  12%|█▎        | 25/200 [03:19<13:01,  4.47s/it]Initial thermalization:  13%|█▎        | 26/200 [03:24<12:58,  4.47s/it]Initial thermalization:  14%|█▎        | 27/200 [03:28<12:53,  4.47s/it]Initial thermalization:  14%|█▍        | 28/200 [03:33<12:49,  4.47s/it]Initial thermalization:  14%|█▍        | 29/200 [03:37<12:44,  4.47s/it]Initial thermalization:  15%|█▌        | 30/200 [03:41<12:40,  4.48s/it]Initial thermalization:  16%|█▌        | 31/200 [03:46<12:36,  4.48s/it]Initial thermalization:  16%|█▌        | 32/200 [03:50<12:33,  4.48s/it]Initial thermalization:  16%|█▋        | 33/200 [03:55<12:27,  4.48s/it]Initial thermalization:  17%|█▋        | 34/200 [03:59<12:24,  4.48s/it]Initial thermalization:  18%|█▊        | 35/200 [04:04<12:20,  4.49s/it]Initial thermalization:  18%|█▊        | 36/200 [04:08<12:16,  4.49s/it]Initial thermalization:  18%|█▊        | 37/200 [04:13<12:12,  4.49s/it]Initial thermalization:  19%|█▉        | 38/200 [04:17<12:07,  4.49s/it]Initial thermalization:  20%|█▉        | 39/200 [04:22<12:03,  4.50s/it]Initial thermalization:  20%|██        | 40/200 [04:26<11:59,  4.50s/it]Initial thermalization:  20%|██        | 41/200 [04:31<11:53,  4.49s/it]Initial thermalization:  21%|██        | 42/200 [04:35<11:48,  4.48s/it]Initial thermalization:  22%|██▏       | 43/200 [04:40<11:43,  4.48s/it]Initial thermalization:  22%|██▏       | 44/200 [04:44<11:40,  4.49s/it]Initial thermalization:  22%|██▎       | 45/200 [04:49<11:36,  4.50s/it]Initial thermalization:  23%|██▎       | 46/200 [04:53<11:33,  4.50s/it]Initial thermalization:  24%|██▎       | 47/200 [04:58<11:29,  4.50s/it]Initial thermalization:  24%|██▍       | 48/200 [05:02<11:24,  4.51s/it]Initial thermalization:  24%|██▍       | 49/200 [05:07<11:20,  4.51s/it]Initial thermalization:  25%|██▌       | 50/200 [05:11<11:15,  4.50s/it]Initial thermalization:  26%|██▌       | 51/200 [05:16<11:09,  4.50s/it]Initial thermalization:  26%|██▌       | 52/200 [05:20<11:04,  4.49s/it]Initial thermalization:  26%|██▋       | 53/200 [05:25<10:59,  4.49s/it]Initial thermalization:  27%|██▋       | 54/200 [05:29<10:55,  4.49s/it]Initial thermalization:  28%|██▊       | 55/200 [05:34<10:51,  4.50s/it]Initial thermalization:  28%|██▊       | 56/200 [05:38<10:47,  4.49s/it]Initial thermalization:  28%|██▊       | 57/200 [05:43<10:42,  4.49s/it]Initial thermalization:  29%|██▉       | 58/200 [05:47<10:36,  4.48s/it]Initial thermalization:  30%|██▉       | 59/200 [05:52<10:30,  4.47s/it]Initial thermalization:  30%|███       | 60/200 [05:56<10:25,  4.47s/it]Initial thermalization:  30%|███       | 61/200 [06:01<10:20,  4.46s/it]Initial thermalization:  31%|███       | 62/200 [06:05<10:15,  4.46s/it]Initial thermalization:  32%|███▏      | 63/200 [06:10<10:10,  4.46s/it]Initial thermalization:  32%|███▏      | 64/200 [06:14<10:06,  4.46s/it]Initial thermalization:  32%|███▎      | 65/200 [06:18<10:02,  4.46s/it]Initial thermalization:  33%|███▎      | 66/200 [06:23<09:57,  4.46s/it]Initial thermalization:  34%|███▎      | 67/200 [06:27<09:53,  4.46s/it]Initial thermalization:  34%|███▍      | 68/200 [06:32<09:48,  4.46s/it]Initial thermalization:  34%|███▍      | 69/200 [06:36<09:43,  4.46s/it]Initial thermalization:  35%|███▌      | 70/200 [06:41<09:39,  4.46s/it]Initial thermalization:  36%|███▌      | 71/200 [06:45<09:35,  4.46s/it]Initial thermalization:  36%|███▌      | 72/200 [06:50<09:30,  4.46s/it]Initial thermalization:  36%|███▋      | 73/200 [06:54<09:25,  4.45s/it]Initial thermalization:  37%|███▋      | 74/200 [06:59<09:20,  4.45s/it]Initial thermalization:  38%|███▊      | 75/200 [07:03<09:15,  4.44s/it]Initial thermalization:  38%|███▊      | 76/200 [07:07<09:11,  4.45s/it]Initial thermalization:  38%|███▊      | 77/200 [07:12<09:07,  4.45s/it]Initial thermalization:  39%|███▉      | 78/200 [07:16<09:03,  4.45s/it]Initial thermalization:  40%|███▉      | 79/200 [07:21<08:58,  4.45s/it]Initial thermalization:  40%|████      | 80/200 [07:25<08:54,  4.46s/it]Initial thermalization:  40%|████      | 81/200 [07:30<08:50,  4.46s/it]Initial thermalization:  41%|████      | 82/200 [07:34<08:45,  4.45s/it]Initial thermalization:  42%|████▏     | 83/200 [07:39<08:40,  4.45s/it]Initial thermalization:  42%|████▏     | 84/200 [07:43<08:36,  4.45s/it]Initial thermalization:  42%|████▎     | 85/200 [07:48<08:32,  4.46s/it]Initial thermalization:  43%|████▎     | 86/200 [07:52<08:28,  4.46s/it]Initial thermalization:  44%|████▎     | 87/200 [07:56<08:24,  4.47s/it]Initial thermalization:  44%|████▍     | 88/200 [08:01<08:20,  4.47s/it]Initial thermalization:  44%|████▍     | 89/200 [08:05<08:15,  4.47s/it]Initial thermalization:  45%|████▌     | 90/200 [08:10<08:10,  4.46s/it]Initial thermalization:  46%|████▌     | 91/200 [08:14<08:07,  4.47s/it]Initial thermalization:  46%|████▌     | 92/200 [08:19<08:03,  4.47s/it]Initial thermalization:  46%|████▋     | 93/200 [08:23<07:58,  4.48s/it]Initial thermalization:  47%|████▋     | 94/200 [08:28<07:54,  4.48s/it]Initial thermalization:  48%|████▊     | 95/200 [08:32<07:49,  4.47s/it]Initial thermalization:  48%|████▊     | 96/200 [08:37<07:45,  4.48s/it]Initial thermalization:  48%|████▊     | 97/200 [08:41<07:40,  4.47s/it]Initial thermalization:  49%|████▉     | 98/200 [08:46<07:35,  4.47s/it]Initial thermalization:  50%|████▉     | 99/200 [08:50<07:31,  4.47s/it]Initial thermalization:  50%|█████     | 100/200 [08:55<07:26,  4.46s/it]Initial thermalization:  50%|█████     | 101/200 [08:59<07:21,  4.46s/it]Initial thermalization:  51%|█████     | 102/200 [09:03<07:16,  4.46s/it]Initial thermalization:  52%|█████▏    | 103/200 [09:08<07:12,  4.46s/it]Initial thermalization:  52%|█████▏    | 104/200 [09:12<07:07,  4.46s/it]Initial thermalization:  52%|█████▎    | 105/200 [09:17<07:04,  4.46s/it]Initial thermalization:  53%|█████▎    | 106/200 [09:21<06:59,  4.46s/it]Initial thermalization:  54%|█████▎    | 107/200 [09:26<06:55,  4.46s/it]Initial thermalization:  54%|█████▍    | 108/200 [09:30<06:50,  4.46s/it]Initial thermalization:  55%|█████▍    | 109/200 [09:35<06:46,  4.46s/it]Initial thermalization:  55%|█████▌    | 110/200 [09:39<06:41,  4.46s/it]Initial thermalization:  56%|█████▌    | 111/200 [09:44<06:36,  4.46s/it]Initial thermalization:  56%|█████▌    | 112/200 [09:48<06:32,  4.46s/it]Initial thermalization:  56%|█████▋    | 113/200 [09:53<06:27,  4.46s/it]=>> PBS: job killed: walltime 603 exceeded limit 600

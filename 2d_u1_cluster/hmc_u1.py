@@ -197,7 +197,7 @@ class HMC_U1:
         acceptance_rate = acceptance_count / self.n_thermalization_steps
         return theta, plaq_ls, acceptance_rate
 
-    def run(self, n_iterations, theta, store_interval=1):
+    def run(self, n_iterations, theta, store_interval=1, save_config=True):
         """
         Parameters:
         -----------
@@ -219,7 +219,8 @@ class HMC_U1:
             
             if i % store_interval == 0:  # only store data at specific intervals
                 theta = regularize(theta)
-                theta_ls.append(theta)
+                if save_config:
+                    theta_ls.append(theta)
                 plaq = plaq_mean_from_field(theta).item()
                 plaq_ls.append(plaq)
                 hamiltonians.append(H_val)

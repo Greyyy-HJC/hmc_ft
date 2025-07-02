@@ -51,6 +51,17 @@ class HMC_U1_FT:
         torch.set_default_dtype(torch.float32)
         torch.set_default_device(self.device)
         torch.manual_seed(1331)
+        
+        # Try to compile functions, but handle errors gracefully
+        try:
+            self.new_action = torch.compile(self.new_action, mode='reduce-overhead')
+            self.new_force = torch.compile(self.new_force, mode='reduce-overhead')
+            self.original_action = torch.compile(self.original_action, mode='reduce-overhead')
+            print("Successfully compiled HMC functions with torch.compile")
+        except Exception as e:
+            print(f"torch.compile failed: {e}")
+            print("Continuing without compilation...")
+            # Functions remain uncompiled but still work
 
     def initialize(self):
         """
@@ -128,12 +139,17 @@ class HMC_U1_FT:
         torch.Tensor
             The force.
         """
-        theta_new.requires_grad_(True)
-        action_value = self.new_action(theta_new)
-        action_value.backward(retain_graph=True)
-        ff = theta_new.grad
-        theta_new.requires_grad_(False)
-        return ff
+        # theta_new.requires_grad_(True)
+        # action_value = self.new_action(theta_new)
+        # action_value.backward(retain_graph=True)
+        # ff = theta_new.grad
+        # theta_new.requires_grad_(False)
+        # return ff
+    
+        theta_copy = theta_new.detach().clone().requires_grad_(True)
+        action_value = self.new_action(theta_copy)
+        force = torch.autograd.grad(action_value, theta_copy)[0]
+        return force.detach()  #TODO: break the gradient chain
 
     def leapfrog(self, theta, pi):
         """
@@ -159,10 +175,6 @@ class HMC_U1_FT:
             pi_ = pi_ - dt * self.new_force(theta_)
         theta_ = theta_ + 0.5 * dt * pi_
         theta_ = regularize(theta_)
-        
-        #TODO: MEMORY OPTIMIZED
-        theta_ = theta_.detach()
-        pi_ = pi_.detach()
         
         return theta_, pi_
 
@@ -303,7 +315,7 @@ class HMC_U1_FT:
         acceptance_rate = acceptance_count / self.n_thermalization_steps
         return theta_new, plaq_ls, acceptance_rate
 
-    def run(self, n_iterations, theta, store_interval=1):
+    def run(self, n_iterations, theta, store_interval=1, save_config=True):
         """
         Run the HMC simulation.
 
@@ -337,8 +349,9 @@ class HMC_U1_FT:
                 theta = regularize(theta)
                 theta_ori = self.field_transformation(theta) 
                 theta_ori = regularize(theta_ori)
-                #TODO: Move results to CPU to save GPU memory
-                theta_ori_ls.append(theta_ori.cpu().clone())
+                if save_config:
+                    #*: Move results to CPU to save GPU memory
+                    theta_ori_ls.append(theta_ori.cpu().clone())
                 plaq = plaq_mean_from_field(theta_ori).item()
                 plaq_ls.append(plaq)
                 hamiltonians.append(H_val)
@@ -346,10 +359,6 @@ class HMC_U1_FT:
 
             if accepted:
                 acceptance_count += 1
-            
-            #TODO: Memory cleanup every 50 steps to prevent accumulation
-            if (i + 1) % 50 == 0 and torch.cuda.is_available():
-                torch.cuda.empty_cache()
 
         acceptance_rate = acceptance_count / n_iterations
         return (
