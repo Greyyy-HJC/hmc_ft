@@ -646,7 +646,7 @@ class FieldTransformation:
         plt.ylabel('Loss')
         plt.legend()
         plt.grid(True)
-        plt.savefig(f'plots/cnn_opt_loss_L{self.L}_train_beta{self.train_beta}.pdf', transparent=True)
+        plt.savefig(f'plots/cnn_opt_loss_L{self.L}_train_beta{self.train_beta}_{self.save_tag}.pdf', transparent=True)
         plt.show()
 
     def _load_best_model(self, train_beta):
