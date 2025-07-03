@@ -21,24 +21,26 @@ torch_logger.propagate = False
 
 
 from utils import plaq_from_field_batch, rect_from_field_batch, get_field_mask, get_plaq_mask, get_rect_mask
-from cnn_model_opt import jointCNN
+from cnn_model_opt import choose_cnn_model
 
 class FieldTransformation:
     """Neural network based field transformation"""
-    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False, num_workers=0, identity_init=True, save_tag=None, fabric=None):
+    def __init__(self, lattice_size, device='cpu', n_subsets=8, if_check_jac=False, num_workers=0, identity_init=True, save_tag=None, model_tag='simple', fabric=None):
         self.L = lattice_size
         self.device = torch.device(device)
         self.n_subsets = n_subsets
         self.if_check_jac = if_check_jac
         self.num_workers = num_workers
         self.train_beta = None # init, will be set in train function
+        self.model_tag = model_tag
         self.save_tag = save_tag
         self.fabric = fabric
         self.print = self.fabric.print if self.fabric is not None else print
         self.backward = self.fabric.backward if self.fabric is not None else torch.autograd.backward
         
         # Create n_subsets independent models for each subset
-        raw_models = nn.ModuleList([jointCNN().to(device) for _ in range(n_subsets)])
+        cnn_model = choose_cnn_model(model_tag)
+        raw_models = nn.ModuleList([cnn_model().to(device) for _ in range(n_subsets)])
         
         # * Initialize models to produce nearly identity transformation if identity_init is True
         if identity_init:
@@ -246,7 +248,7 @@ class FieldTransformation:
         Uses fixed-point iteration to find the inverse transformation
         """
         theta_curr = theta.clone()
-        max_iter = 100
+        max_iter = 200
         tol = 1e-6
         
         for index in reversed(range(self.n_subsets)):

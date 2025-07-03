@@ -34,6 +34,8 @@ parser.add_argument('--n_subsets', type=int, default=8,
                     help='Number of subsets for training (default: 8)')
 parser.add_argument('--n_workers', type=int, default=0,
                     help='Number of workers for training (default: 0)')
+parser.add_argument('--model_tag', type=str, default='simple',
+                    help='Model tag for training (default: simple)')
 parser.add_argument('--save_tag', type=str, default=None,
                     help='Save tag for training (default: None)')
 parser.add_argument('--rand_seed', type=int, default=1331,
@@ -63,6 +65,7 @@ fabric.print(f"Number of epochs: {args.n_epochs}")
 fabric.print(f"Batch size: {args.batch_size}")
 fabric.print(f"Number of subsets: {args.n_subsets}")
 fabric.print(f"Number of workers: {args.n_workers}")
+fabric.print(f"Model tag: {args.model_tag}")
 fabric.print(f"Save tag: {args.save_tag}")
 fabric.print(f"Random seed: {args.rand_seed}")
 fabric.print(f"Identity initialization: {args.if_identity_init}")
@@ -84,10 +87,11 @@ set_seed(args.rand_seed)
 
 # Set default type
 torch.set_default_dtype(torch.float32)
+torch.set_float32_matmul_precision('high')
 
 # %%
 # initialize the field transformation
-nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=args.n_subsets, if_check_jac=args.if_check_jac, num_workers=args.n_workers, identity_init=args.if_identity_init, save_tag=args.save_tag, fabric=fabric)
+nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=args.n_subsets, if_check_jac=args.if_check_jac, num_workers=args.n_workers, identity_init=args.if_identity_init, model_tag=args.model_tag, save_tag=args.save_tag, fabric=fabric)
 
 if args.if_continue:
     start_beta = args.min_beta - args.beta_gap

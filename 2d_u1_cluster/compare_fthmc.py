@@ -19,6 +19,7 @@ parser.add_argument('--step_size', type=float, default=0.1, help='Step size for 
 parser.add_argument('--ft_step_size', type=float, default=0.1, help='Step size for FT HMC (default: 0.1)')
 parser.add_argument('--max_lag', type=int, default=200, help='Max lag for autocorrelation (default: 200)')
 parser.add_argument('--rand_seed', type=int, default=1331, help='Random seed for training (default: 1331)')
+parser.add_argument('--model_tag', type=str, default='simple', help='Model tag for training (default: simple)')
 parser.add_argument('--save_tag', type=str, default=None, help='Save tag for training (default: None)')
 parser.add_argument('--device', type=str, default='cpu', help='Device to use (default: cpu)')
 
@@ -35,6 +36,7 @@ print(f"Step size: {args.step_size}")
 print(f"FT step size: {args.ft_step_size}")
 print(f"Max lag: {args.max_lag}")
 print(f"Random seed: {args.rand_seed}")
+print(f"Model tag: {args.model_tag}")
 print(f"Save tag: {args.save_tag}")
 print(f"Device: {args.device}")
 print("="*60)
@@ -65,7 +67,11 @@ device = args.device
 
 # Set default type
 torch.set_default_dtype(torch.float32)
-
+#TODO: optimize the performance
+torch.set_float32_matmul_precision('high')
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.benchmark = True
 
 # %%
 #! Field transformation
@@ -74,7 +80,7 @@ print(">>> Neural Network Field Transformation HMC Simulation: ")
 # initialize the field transformation
 n_subsets = 8
 n_workers = 0 # * n_workers = 0 is faster
-nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=n_subsets, if_check_jac=False, num_workers=n_workers, identity_init=True, save_tag=args.save_tag)
+nn_ft = FieldTransformation(lattice_size, device=device, n_subsets=n_subsets, if_check_jac=False, num_workers=n_workers, identity_init=True, model_tag=args.model_tag, save_tag=args.save_tag)
 
 # Load the trained model using the _load_best_model method
 model_load_start_time = time.time()
@@ -88,7 +94,7 @@ except Exception as e:
     print(f">>> Error loading model: {e}")
     raise
 
-field_transformation = nn_ft.field_transformation
+field_transformation = nn_ft.field_transformation_compiled
 compute_jac_logdet = nn_ft.compute_jac_logdet_compiled
 
 
@@ -116,7 +122,7 @@ print(f">>> Total time (Field Transformation HMC): {model_load_time + ft_therm_t
 
 # Compute autocorrelation of topological charges
 hmc_fig = hmc_summary(beta, max_lag, volume, therm_plaq_ls, plaq_ls, topological_charges, hamiltonians, therm_acceptance_rate, acceptance_rate)
-hmc_fig.savefig(f'plots/comparison_opt_hmc_ft_L{lattice_size}_beta{beta:.1f}_train_beta{train_beta:.1f}_ftstep{ft_step_size:.2f}_{args.save_tag}.pdf', transparent=True)
+hmc_fig.savefig(f'plots/comparison_fthmc_L{lattice_size}_beta{beta:.1f}_train_beta{train_beta:.1f}_ftstep{ft_step_size:.2f}_{args.save_tag}.pdf', transparent=True)
 
 # Print timing comparison    
 print(f">>> Total time (Field Transformation HMC): {model_load_time + ft_therm_time + ft_run_time:.2f} seconds")
